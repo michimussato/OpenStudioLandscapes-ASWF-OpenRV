@@ -92,6 +92,8 @@ RUN dnf groupinstall "Development Tools" -y \
     yasm \
     zip \
     zlib-devel \
+    rust \
+    cargo \
     && dnf clean all
 
 # Disable the devel repo afterwards since dnf will warn about it
