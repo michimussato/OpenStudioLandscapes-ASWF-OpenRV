@@ -1,9 +1,8 @@
-import ctypes
 import hashlib
 import logging
 import math
 import os
-import signal
+import psutil
 import shutil
 import subprocess
 import sys
@@ -34,34 +33,16 @@ _IS_WIN32 = sys.platform == "win32"
 
 
 def _suspend_proc(proc: subprocess.Popen) -> None:
-    """Suspend a subprocess. Uses SIGSTOP on Unix, NtSuspendProcess on Windows."""
     try:
-        if _IS_WIN32:
-            handle = ctypes.windll.kernel32.OpenProcess(0x0800, False, proc.pid)  # PROCESS_SUSPEND_RESUME
-            if handle:
-                try:
-                    ctypes.windll.ntdll.NtSuspendProcess(handle)
-                finally:
-                    ctypes.windll.kernel32.CloseHandle(handle)
-        else:
-            proc.send_signal(signal.SIGSTOP)
-    except Exception:
+        psutil.Process(proc.pid).suspend()
+    except psutil.Error:
         logger.warning(f"Failed to suspend process {proc.pid}")
 
 
 def _resume_proc(proc: subprocess.Popen) -> None:
-    """Resume a suspended subprocess. Uses SIGCONT on Unix, NtResumeProcess on Windows."""
     try:
-        if _IS_WIN32:
-            handle = ctypes.windll.kernel32.OpenProcess(0x0800, False, proc.pid)  # PROCESS_SUSPEND_RESUME
-            if handle:
-                try:
-                    ctypes.windll.ntdll.NtResumeProcess(handle)
-                finally:
-                    ctypes.windll.kernel32.CloseHandle(handle)
-        else:
-            proc.send_signal(signal.SIGCONT)
-    except Exception:
+        psutil.Process(proc.pid).resume()
+    except psutil.Error:
         logger.warning(f"Failed to resume process {proc.pid}")
 
 
@@ -91,6 +72,7 @@ class LocalThumbnailGen(rvtypes.MinorMode):
         self._deferred_sources: set[str] = set()
         self._deferred_jobs: list[tuple[str, str, str, str]] = []
         self._playback_active = False
+        self._display_preview = False if os.getenv("RV_SESSION_MANAGER_USE_THUMBNAILS") == "0" else True
         self._shutting_down = False
         self._active_procs: list[subprocess.Popen] = []
         self._procs_lock = threading.Lock()
@@ -129,6 +111,16 @@ class LocalThumbnailGen(rvtypes.MinorMode):
                 "play-stop",
                 self._on_play_stop,
                 "Resume thumbnail generation after playback",
+            ),
+            (
+                "session-manager-previews-disabled",
+                self._on_previews_disabled,
+                "Suspend thumbnail generation after disabling preview",
+            ),
+            (
+                "session-manager-previews-enabled",
+                self._on_previews_enabled,
+                "Resume thumbnail generation after enabling preview",
             ),
         ]
 
@@ -516,6 +508,8 @@ class LocalThumbnailGen(rvtypes.MinorMode):
         event.reject()
         with self._procs_lock:
             self._playback_active = True
+            if not self._display_preview:
+                return
             for proc in self._active_procs:
                 _suspend_proc(proc)
 
@@ -527,6 +521,27 @@ class LocalThumbnailGen(rvtypes.MinorMode):
             return
         with self._procs_lock:
             self._playback_active = False
+            if not self._display_preview:
+                return
+            for proc in self._active_procs:
+                _resume_proc(proc)
+        self._drain_one()
+
+    def _on_previews_disabled(self, event: Any) -> None:
+        event.reject()
+        self._display_preview = False
+        if self._playback_active:
+            return
+        with self._procs_lock:
+            for proc in self._active_procs:
+                _suspend_proc(proc)
+
+    def _on_previews_enabled(self, event: Any) -> None:
+        event.reject()
+        self._display_preview = True
+        if self._playback_active:
+            return
+        with self._procs_lock:
             for proc in self._active_procs:
                 _resume_proc(proc)
         self._drain_one()
