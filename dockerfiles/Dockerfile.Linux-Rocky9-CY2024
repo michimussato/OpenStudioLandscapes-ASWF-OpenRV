@@ -1,6 +1,8 @@
-FROM rockylinux/rockylinux:9
+FROM rockylinux/rockylinux:9 AS base_os
 
 LABEL maintainer="Open RV maintainer - https://github.com/AcademySoftwareFoundation/OpenRV"
+
+SHELL ["/bin/bash", "-c"]
 
 USER root
 
@@ -12,7 +14,8 @@ ENV NINJA_VERSION="1.12.1"
 # ─────────────────────────────────────────────
 # CY2024 Configuration
 # ─────────────────────────────────────────────
-ENV VFX_PLATFORM="CY2024"
+# VFX_PLATFORM is not used. Use RV_VFX_PLATFORM instead?
+# ENV RV_VFX_PLATFORM="CY2024"
 ENV PYTHON_VERSION="3.11.8"
 ENV QT_VERSION="6.5.3"
 ENV QT_MODULES="debug_info qt3d qt5compat qtcharts qtconnectivity qtdatavis3d qtgrpc qthttpserver qtimageformats qtlanguageserver qtlocation qtlottie qtmultimedia qtnetworkauth qtpdf qtpositioning qtquick3d qtquick3dphysics qtquickeffectmaker qtquicktimeline qtremoteobjects qtscxml qtsensors qtserialbus qtserialport qtshadertools qtspeech qtvirtualkeyboard qtwaylandcompositor qtwebchannel qtwebengine qtwebsockets qtwebview"
@@ -138,5 +141,229 @@ RUN python -m pip install aqtinstall
 RUN python -m aqt install-qt linux desktop ${QT_VERSION} gcc_64 -O ~/Qt \
     -m ${QT_MODULES} \
     --archives ${QT_ARCHIVES}
+
+CMD ["/bin/bash"]
+
+# Stage 2
+FROM base_os AS build_system
+
+# Build OpenRV
+RUN git clone --recursive https://github.com/AcademySoftwareFoundation/OpenRV.git
+WORKDIR /home/rv/OpenRV
+# Set RV_VFX_PLATFORM to 2024 so that we won't be confronted with an interactive
+# questionnaire:
+ENV RV_VFX_PLATFORM="CY2024"
+
+## CMake parameters:
+## RV_BUILD_PARALLELISM is 8
+## RV_HOME is /home/rv/OpenRV
+## RV_BUILD_DIR is /home/rv/OpenRV/_build
+## RV_INST_DIR is /home/rv/OpenRV/_install
+## CMAKE_GENERATOR is Ninja
+## QT_HOME is /home/rv/Qt/6.5.3/gcc_64
+## ENV RV_BUILD_DIR=
+#ENV RV_HOME="/home/rv/OpenRV"
+#ENV RV_BUILD_DIR="/home/rv/OpenRV/_build"
+#ENV RV_INST_DIR="/opt/rv"
+## ENV RV_BUILD_TYPE=
+
+#  RV_BUILD_DIR="${RV_HOME}/_build${RV_PATH_SUFFIX}"
+#  RV_INST_DIR="${RV_HOME}/_install${RV_PATH_SUFFIX}"
+#  RV_APP_DIR="${RV_BUILD_DIR}/stage/app/bin"
+
+# RUN ls -al
+# RUN cat rvcmds.sh
+# RUN source rvcmds.sh \
+#     && rvsetup \
+#     && rvcfg -DRV_FFMPEG_NON_FREE_DECODERS_TO_ENABLE="aac;hevc" -DRV_FFMPEG_NON_FREE_ENCODERS_TO_ENABLE="aac" \
+#     && rvbuild || rvbuild
+
+# #24 2528.3 [2110/2196  96%] cd /home/rv/OpenRV/_build/stage/app/bin && /home/rv/OpenRV/_build/RV_DEPS_PYTHON3/install/bin/python3 /home/rv/OpenRV/src/build/install_all_rvpkg.py --rvpkg /home/rv/OpenRV/_build/stage/app/bin/rvpkg --destination /home/rv/OpenRV/_build/stage/app/plugins --source /home/rv/OpenRV/_build/stage/packages
+  ##24 2528.3 FAILED: stage/app/plugins/Packages/rvinstall /home/rv/OpenRV/_build/stage/app/plugins/Packages/rvinstall
+  ##24 2528.3 cd /home/rv/OpenRV/_build/stage/app/bin && /home/rv/OpenRV/_build/RV_DEPS_PYTHON3/install/bin/python3 /home/rv/OpenRV/src/build/install_all_rvpkg.py --rvpkg /home/rv/OpenRV/_build/stage/app/bin/rvpkg --destination /home/rv/OpenRV/_build/stage/app/plugins --source /home/rv/OpenRV/_build/stage/packages
+  ##24 2528.3 /home/rv/OpenRV/bin/python: Command not found.
+  ##24 2528.3 /home/rv/OpenRV/bin/rvpkg.bin: Command not found.
+  ##24 2528.3 Traceback (most recent call last):
+  ##24 2528.3   File "/home/rv/OpenRV/src/build/install_all_rvpkg.py", line 41, in <module>
+  ##24 2528.3     install_rvpkg_packages(**vars(parser.parse_args()))
+  ##24 2528.3   File "/home/rv/OpenRV/src/build/install_all_rvpkg.py", line 26, in install_rvpkg_packages
+  ##24 2528.3     subprocess.run(command).check_returncode()
+  ##24 2528.3   File "/home/rv/OpenRV/_build/RV_DEPS_PYTHON3/install/lib/python3.11/subprocess.py", line 502, in check_returncode
+  ##24 2528.3     raise CalledProcessError(self.returncode, self.args, self.stdout,
+  ##24 2528.3 subprocess.CalledProcessError: Command '[PosixPath('/home/rv/OpenRV/_build/stage/app/bin/rvpkg'), '-force', '-install', '-add', PosixPath('/home/rv/OpenRV/_build/stage/app/plugins'), PosixPath('/home/rv/OpenRV/_build/stage/packages/additional_nodes-1.2.rvpkg'), PosixPath('/home/rv/OpenRV/_build/stage/packages/annot_tools-0.1.rvpkg'), PosixPath('/home/rv/OpenRV/_build/stage/packages/annotate-1.21.rvpkg'), PosixPath('/home/rv/OpenRV/_build/stage/packages/channel_select-1.3.rvpkg'), PosixPath('/home/rv/OpenRV/_build/stage/packages/collapse_missing_frames-1.2.rvpkg'), PosixPath('/home/rv/OpenRV/_build/stage/packages/custom_lut_menu_mode-2.9.rvpkg'), PosixPath('/home/rv/OpenRV/_build/stage/packages/custom_mattes-2.3.rvpkg'), PosixPath('/home/rv/OpenRV/_build/stage/packages/data_display_indicators-1.2.rvpkg'), PosixPath('/home/rv/OpenRV/_build/stage/packages/doc_browser-1.4.rvpkg'), PosixPath('/home/rv/OpenRV/_build/stage/packages/export_cuts-1.5.rvpkg'), PosixPath('/home/rv/OpenRV/_build/stage/packages/lat_long_viewer-1.2.rvpkg'), PosixPath('/home/rv/OpenRV/_build/stage/packages/layer_select-1.7.rvpkg'), PosixPath('/home/rv/OpenRV/_build/stage/packages/maya_tools-1.6.rvpkg'), PosixPath('/home/rv/OpenRV/_build/stage/packages/media_library_demo-1.0.rvpkg'), PosixPath('/home/rv/OpenRV/_build/stage/packages/missing_frame_bling-1.7.rvpkg'), PosixPath('/home/rv/OpenRV/_build/stage/packages/multiple_source_media_rep-1.3.rvpkg'), PosixPath('/home/rv/OpenRV/_build/stage/packages/node_graph_viz-0.1.rvpkg'), PosixPath('/home/rv/OpenRV/_build/stage/packages/ocio_source_setup-2.5.rvpkg'), PosixPath('/home/rv/OpenRV/_build/stage/packages/openrv_help_menu-1.0.rvpkg'), PosixPath('/home/rv/OpenRV/_build/stage/packages/os_dependent_path_conversion_mode-1.7.rvpkg'), PosixPath('/home/rv/OpenRV/_build/stage/packages/otio_reader-1.2.rvpkg'), PosixPath('/home/rv/OpenRV/_build/stage/packages/pyhello-1.2.rvpkg'), PosixPath('/home/rv/OpenRV/_build/stage/packages/pymystuff-1.2.rvpkg'), PosixPath('/home/rv/OpenRV/_build/stage/packages/pyside_example-1.2.rvpkg'), PosixPath('/home/rv/OpenRV/_build/stage/packages/rvio_basic_scripts-1.2.rvpkg'), PosixPath('/home/rv/OpenRV/_build/stage/packages/rvnuke-1.12.rvpkg'), PosixPath('/home/rv/OpenRV/_build/stage/packages/scrub_offset-1.6.rvpkg'), PosixPath('/home/rv/OpenRV/_build/stage/packages/sequence_from_file-1.4.rvpkg'), PosixPath('/home/rv/OpenRV/_build/stage/packages/session_manager-1.10.rvpkg'), PosixPath('/home/rv/OpenRV/_build/stage/packages/source_setup-4.3.rvpkg'), PosixPath('/home/rv/OpenRV/_build/stage/packages/stereo_autoload-1.6.rvpkg'), PosixPath('/home/rv/OpenRV/_build/stage/packages/stereo_disassembly-1.3.rvpkg'), PosixPath('/home/rv/OpenRV/_build/stage/packages/sync-1.5.rvpkg'), PosixPath('/home/rv/OpenRV/_build/stage/packages/webview2-0.3.rvpkg'), PosixPath('/home/rv/OpenRV/_build/stage/packages/window_title-1.6.rvpkg')]' returned non-zero exit status 1.
+
+#23 0.101 CMake parameters:
+#23 0.101 RV_BUILD_PARALLELISM is 8
+#23 0.101 RV_HOME is /home/rv/OpenRV
+#23 0.101 RV_BUILD_DIR is /home/rv/OpenRV/_build
+#23 0.101 RV_INST_DIR is /home/rv/OpenRV/_install
+#23 0.101 CMAKE_GENERATOR is Ninja
+#23 0.101 QT_HOME is /home/rv/Qt/6.5.3/gcc_64
+
+# The build process can be condensed as follows:
+# `rvsetup && rvcfg && rvbuild || rvbuild`
+# or with FFMPEG_NON_FREE
+# `rvsetup && rvcfg -DRV_FFMPEG_NON_FREE_DECODERS_TO_ENABLE="aac;hevc" -DRV_FFMPEG_NON_FREE_ENCODERS_TO_ENABLE="aac" && rvbuild || rvbuild`
+#
+# However, aliases don't work in Dockerfiles,
+# hence, we have to unpack all the nested aliases.
+# (Functions defined in `rvcmds.sh` are fine.)
+#
+# `rvsetup` unpacks to:
+# - `rvenv && SETUPTOOLS_USE_DISTUTILS=${SETUPTOOLS_USE_DISTUTILS} python3 -m pip install --upgrade -r ${RV_HOME}/requirements.txt`
+#   `rvenv` unpacks to:
+#   - `rvhomedir && __rv_env_shell`
+#     `rvhomedir` unpacks to:
+#     - `'cd ${RV_HOME}`
+# - `rvcfg` unpacks to:
+# - `rvbuild` unpacks to:
+#   - `rvenv && rvbuildt main_executable`
+#     `rvbuildt` unpacks to:
+#     - `rvenv && __rv_build_with_errors`
+
+RUN source rvcmds.sh \
+    && cd ${RV_HOME} \
+    && __rv_env_shell \
+    && SETUPTOOLS_USE_DISTUTILS=${SETUPTOOLS_USE_DISTUTILS} python3 -m pip install --upgrade -r ${RV_HOME}/requirements.txt \
+    && cmake -B ${RV_BUILD_DIR} -G "${CMAKE_GENERATOR}" ${RV_TOOLCHAIN} ${CMAKE_WIN_ARCH} -DCMAKE_BUILD_TYPE=${RV_BUILD_TYPE} -DRV_DEPS_QT_LOCATION=${QT_HOME} -DRV_VFX_PLATFORM=${RV_VFX_PLATFORM} -DRV_DEPS_WIN_PERL_ROOT=${WIN_PERL} \
+    && __rv_build_with_errors main_executable \
+    && cmake --install ${RV_BUILD_DIR} --prefix ${RV_INST_DIR} --config ${RV_BUILD_TYPE}
+
+
+CMD ["/bin/bash"]
+
+
+# BUILD TARGETS
+
+FROM rockylinux/rockylinux:9 AS rv_base
+
+LABEL maintainer="Open RV maintainer - michimussato@etik.com"
+
+SHELL ["/bin/bash", "-c"]
+
+USER root
+
+# Search for package that provides `libsmime3.so`:
+# `dnf provides */libsmime3.so\*`
+# Base dependencies to run OpenRV
+RUN dnf install -y \
+    alsa-lib \
+    pulseaudio-libs \
+    libXcomposite \
+    libxkbcommon \
+    libXdamage \
+    libXrandr \
+    dbus-libs \
+    libXrender \
+    libXtst \
+    libxkbfile \
+    mesa-libGLU \
+    freetype \
+    libglvnd-opengl \
+    libglvnd-egl \
+    fontconfig \
+    libaio \
+    nss \
+    tcsh \
+    && dnf clean all
+
+CMD ["/bin/bash"]
+
+
+
+
+
+#FROM rv_base AS rv_tar_xz
+#
+#COPY --from=openstudiolandscapes-aswf-openrv-rocky9-cy2024-build_system:latest "/home/rv/OpenRV/_install" "/home/rv/OpenRV/_install"
+#
+## rel (run rvcfg/rvmk) [rv@c5f5e892209a OpenRV]$ uname -i
+## x86_64
+## rel (run rvcfg/rvmk) [rv@c5f5e892209a OpenRV]$ uname -m
+## x86_64
+## rel (run rvcfg/rvmk) [rv@c5f5e892209a OpenRV]$ uname -p
+## x86_64
+## rel (run rvcfg/rvmk) [rv@c5f5e892209a OpenRV]$ uname -m
+## x86_64
+#
+## source /etc/os-release
+## tar -C /home/rv/OpenRV/_install -czvf OpenRV-$(/home/rv/OpenRV/_install/bin/rv -version)-$(uname)-$(uname --hardware-platform).tar.gz .
+## tar -C /home/rv/OpenRV/_install -cvf - . | gzip -9 - > OpenRV-$(/home/rv/OpenRV/_install/bin/rv -version)-$(uname)-$(uname --hardware-platform).tar.gz
+## tar -C /home/rv/OpenRV/_install -cvf - . | xz -v --threads=0 -9 --stdout - > OpenRV-$(/home/rv/OpenRV/_install/bin/rv -version)-$(uname)-$(uname --hardware-platform).tar.xz
+## tar -C /home/rv/OpenRV/_install --create --verbose --file - . | xz --verbose --threads=0 -9 --stdout - > OpenRV-$(/home/rv/OpenRV/_install/bin/rv -version)-${ROCKY_SUPPORT_PRODUCT}-$(uname --hardware-platform).tar.xz
+#
+#
+##RUN dnf install -y \
+##    redhat-lsb-core \
+##    && dnf clean all
+#
+#
+## Test Integrity
+## tar --list --file OpenRV-$(/home/rv/OpenRV/_install/bin/rv -version)-${ROCKY_SUPPORT_PRODUCT}-$(uname --hardware-platform).tar.xz > /dev/null
+## tar --verbose --list --file OpenRV-$(/home/rv/OpenRV/_install/bin/rv -version)-${ROCKY_SUPPORT_PRODUCT}-$(uname --hardware-platform).tar.xz
+#
+#RUN source /etc/os-release \
+#    && tar \
+#        -C /home/rv/OpenRV/_install \
+#        --create \
+#    	--verbose \
+#    	--file - . \
+#    	| xz \
+#    	--verbose \
+#    	--threads=0 \
+#    	-9 \
+#    	--stdout - \
+#    	> OpenRV-$(/home/rv/OpenRV/_install/bin/rv -version)-${ROCKY_SUPPORT_PRODUCT}-$(uname --hardware-platform).tar.xz \
+#    && tar \
+#    	--verbose \
+#    	--list \
+#    	--file OpenRV-$(/home/rv/OpenRV/_install/bin/rv -version)-${ROCKY_SUPPORT_PRODUCT}-$(uname --hardware-platform).tar.xz \
+#    	> /dev/null \
+#    && echo OpenRV-$(/home/rv/OpenRV/_install/bin/rv -version)-${ROCKY_SUPPORT_PRODUCT}-$(uname --hardware-platform).tar.xz
+#
+#CMD ["/bin/bash"]
+
+
+FROM rv_base AS stage_on_base_os
+# scratch has no shell
+
+COPY --from=openstudiolandscapes-aswf-openrv-rocky9-cy2024-build_system:latest "/home/rv/OpenRV/_build" "/opt/rv"
+
+CMD ["/bin/bash"]
+
+
+FROM rv_base AS installable_on_base_os
+
+#ENV RV_INST_DIR="/opt/rv"
+
+#WORKDIR ${RV_INST_DIR}
+
+COPY --from=openstudiolandscapes-aswf-openrv-rocky9-cy2024-build_system:latest "/home/rv/OpenRV/_install" "/opt/rv"
+#COPY --from=build ${RV_INST_DIR} .
+
+ENV PATH="/opt/rv/bin:${PATH}"
+
+CMD ["/bin/bash"]
+
+
+FROM rv_base AS stage_on_rocky
+# scratch has no shell
+
+COPY --from=openstudiolandscapes-aswf-openrv-rocky9-cy2024-build_system:latest "/home/rv/OpenRV/_build" "/opt/rv"
+
+CMD ["/bin/bash"]
+
+
+FROM rv_base AS installable_on_rocky
+
+#ENV RV_INST_DIR="/opt/rv"
+
+#WORKDIR ${RV_INST_DIR}
+
+COPY --from=openstudiolandscapes-aswf-openrv-rocky9-cy2024-build_system:latest "/home/rv/OpenRV/_install" "/opt/rv"
+#COPY --from=build_system "/home/rv/OpenRV/_install" "/opt/rv"
+#COPY --from=build ${RV_INST_DIR} .
+
+ENV PATH="/opt/rv/bin:${PATH}"
 
 CMD ["/bin/bash"]

@@ -10,6 +10,8 @@
   * [Resources](#resources)
     * [Alternate Approaches](#alternate-approaches)
   * [Build](#build)
+    * [Apptainer](#apptainer-1)
+    * [From Docker Image](#from-docker-image)
   * [Non Free Codecs](#non-free-codecs)
   * [Enable Non Free Codecs](#enable-non-free-codecs)
     * [AAC](#aac)
@@ -29,6 +31,7 @@ Resources:
     - [How to convert a Docker container to an Apptainer container](https://rcs.ucalgary.ca/How_to_convert_a_Docker_container_to_an_Apptainer_container)
   - local images:
     - [Using Containers in Supercomputing Environment](https://yetulaxman.github.io/ContainersHPC2024/hands-on/local_docker_to_apptainer.html)
+    - [ucla-oarc-cs/docker-to-apptainer](https://github.com/ucla-oarc-cs/docker-to-apptainer)
 
 ## Install
 
@@ -96,8 +99,33 @@ sudo dnf install apptainer time
 
 ## Build
 
+### Apptainer
+
 ```shell
-export APPTAINERFILE="OpenRV.def" TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S") && /usr/bin/time -f 'Commandline Args: %C\nElapsed Time: %E\nPeak Memory: %M\nExit Code: %x' apptainer --config ./apptainer/conf/apptainer.conf --verbose build --ignore-fakeroot-command --build-arg-file .env --warn-unused-build-args ./apptainer/.sif/OpenRV_${TIMESTAMP}.sif ./apptainer/${APPTAINERFILE} > >(tee -a ./apptainer/.logs/${APPTAINERFILE}.${TIMESTAMP}.STDOUT.log) 2> >(tee -a ./apptainer/.logs/${APPTAINERFILE}.${TIMESTAMP}.STDERR.log >&2) && unset APPTAINERFILE TIMESTAMP
+export APPTAINERFILE="OpenRV.def"
+export TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
+
+/usr/bin/time -f 'Commandline Args: %C\nElapsed Time: %E\nPeak Memory: %M\nExit Code: %x' \
+    apptainer \
+    --config ./apptainer/conf/apptainer.conf \
+    --verbose \
+    build \
+    --ignore-fakeroot-command \
+    --build-arg-file .env \
+    --warn-unused-build-args \
+    ./apptainer/.sif/OpenRV_${TIMESTAMP}.sif \
+    ./apptainer/${APPTAINERFILE} \
+    > >(tee -a ./apptainer/.logs/${APPTAINERFILE}.${TIMESTAMP}.STDOUT.log) \
+    2> >(tee -a ./apptainer/.logs/${APPTAINERFILE}.${TIMESTAMP}.STDERR.log >&2)
+
+unset APPTAINERFILE TIMESTAMP
+```
+
+### From Docker Image
+
+```shell
+docker save OpenStudioLandscapes-ASWF-OpenRV-BuildBox-CY2024 -o OpenStudioLandscapes-ASWF-OpenRV-BuildBox-CY2024.tar
+ls -l  trimmomatic_image.tar  # to see the local copy of image tarball
 ```
 
 ## Non Free Codecs
