@@ -4,6 +4,8 @@ LABEL maintainer="Open RV maintainer - https://github.com/AcademySoftwareFoundat
 
 SHELL ["/bin/bash", "-c"]
 
+ENV WORKDIR="/root"
+
 USER root
 
 
@@ -50,7 +52,6 @@ RUN dnf groupinstall "Development Tools" -y \
     libXcursor-devel \
     libXdamage \
     libXext-devel \
-    libXi-devel \
     libXi-devel \
     libXrandr \
     libXrandr-devel \
@@ -104,31 +105,31 @@ RUN curl -L https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}
     sh cmake.sh --prefix=/usr/local/ --skip-license && \
     rm -rf cmake.sh
 
-# Create and run as user rv
-RUN useradd -u 1001 -ms /bin/bash rv
-WORKDIR /home/rv
-USER rv
+## Create and run as user rv
+#RUN useradd --uid 1001 --create-home --home-dir ${WORKDIR} --shell /bin/bash rv
+WORKDIR ${WORKDIR}
+#USER rv
 
 # Install Rust (>=1.92)
 # - https://aswf-openrv.readthedocs.io/en/latest/build_system/config_macos.html#install-tools-and-build-dependencies
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 
-ENV PATH="/home/rv/.local/bin:${PATH}"
+ENV PATH="${WORKDIR}/.local/bin:${PATH}"
 ENV PATH="/usr/local/bin:${PATH}"
-ENV PATH="/home/rv/.cargo/bin:${PATH}"
-ENV PATH="/home/rv/ninja:${PATH}"
+ENV PATH="${WORKDIR}/.cargo/bin:${PATH}"
+ENV PATH="${WORKDIR}/ninja:${PATH}"
 
 ENV QT_QPA_PLATFORM="offscreen"
 
 # Install Ninja
-ENV PATH="/home/rv/ninja:${PATH}"
+ENV PATH="${WORKDIR}/ninja:${PATH}"
 RUN wget https://github.com/ninja-build/ninja/releases/download/v${NINJA_VERSION}/ninja-linux.zip && \
     unzip ninja-linux.zip -d ./ninja
 
 # Install pyenv
-ENV PYENV_ROOT="/home/rv/.pyenv"
+ENV PYENV_ROOT="${WORKDIR}/.pyenv"
 ENV PATH="${PYENV_ROOT}/shims:${PYENV_ROOT}/bin:${PATH}"
-RUN git clone http://github.com/pyenv/pyenv.git /home/rv/.pyenv
+RUN git clone http://github.com/pyenv/pyenv.git ${WORKDIR}/.pyenv
 RUN echo 'eval "$(pyenv init -)"' >> ~/.bashrc
 
 # Python environment
@@ -138,6 +139,7 @@ RUN pyenv global ${PYTHON_VERSION}
 RUN python -m pip install aqtinstall
 
 # Install Qt
+# This does not seem to cache
 RUN python -m aqt install-qt linux desktop ${QT_VERSION} gcc_64 -O ~/Qt \
     -m ${QT_MODULES} \
     --archives ${QT_ARCHIVES}
@@ -149,7 +151,8 @@ FROM base_os AS build_system
 
 # Build OpenRV
 RUN git clone --recursive https://github.com/AcademySoftwareFoundation/OpenRV.git
-WORKDIR /home/rv/OpenRV
+RUN ls -al
+WORKDIR ${WORKDIR}/OpenRV
 # Set RV_VFX_PLATFORM to 2024 so that we won't be confronted with an interactive
 # questionnaire:
 ENV RV_VFX_PLATFORM="CY2024"
@@ -221,6 +224,16 @@ ENV RV_VFX_PLATFORM="CY2024"
 #     `rvbuildt` unpacks to:
 #     - `rvenv && __rv_build_with_errors`
 
+# RUN source rvcmds.sh
+# RUN echo ${RV_HOME}
+# RUN echo ${SETUPTOOLS_USE_DISTUTILS}
+# RUN echo ${RV_BUILD_DIR}
+# RUN echo ${CMAKE_GENERATOR}
+# RUN echo ${RV_TOOLCHAIN}
+# RUN echo ${CMAKE_WIN_ARCH}
+# RUN echo ${RV_INST_DIR}
+# RUN echo ${RV_BUILD_TYPE}
+
 RUN source rvcmds.sh \
     && cd ${RV_HOME} \
     && __rv_env_shell \
@@ -241,6 +254,9 @@ LABEL maintainer="Open RV maintainer - michimussato@etik.com"
 
 SHELL ["/bin/bash", "-c"]
 
+#ENV QT_QPA_PLATFORM=xcb
+ENV QT_QPA_PLATFORM="offscreen"
+
 USER root
 
 # Search for package that provides `libsmime3.so`:
@@ -251,6 +267,9 @@ RUN dnf install -y \
     pulseaudio-libs \
     libXcomposite \
     libxkbcommon \
+    libXcursor \
+    libXcursor-devel \
+    xcb-util-cursor \
     libXdamage \
     libXrandr \
     dbus-libs \
@@ -327,7 +346,7 @@ CMD ["/bin/bash"]
 FROM rv_base AS stage_on_base_os
 # scratch has no shell
 
-COPY --from=openstudiolandscapes-aswf-openrv-rocky9-cy2024-build_system:latest "/home/rv/OpenRV/_build" "/opt/rv"
+COPY --from=openstudiolandscapes-aswf-openrv-rocky9-cy2024-build_system:latest "${WORKDIR}/OpenRV/_build" "/opt/rv"
 
 CMD ["/bin/bash"]
 
@@ -338,7 +357,7 @@ FROM rv_base AS installable_on_base_os
 
 #WORKDIR ${RV_INST_DIR}
 
-COPY --from=openstudiolandscapes-aswf-openrv-rocky9-cy2024-build_system:latest "/home/rv/OpenRV/_install" "/opt/rv"
+COPY --from=openstudiolandscapes-aswf-openrv-rocky9-cy2024-build_system:latest "${WORKDIR}/OpenRV/_install" "/opt/rv"
 #COPY --from=build ${RV_INST_DIR} .
 
 ENV PATH="/opt/rv/bin:${PATH}"
@@ -349,19 +368,22 @@ CMD ["/bin/bash"]
 FROM rv_base AS stage_on_rocky
 # scratch has no shell
 
-COPY --from=openstudiolandscapes-aswf-openrv-rocky9-cy2024-build_system:latest "/home/rv/OpenRV/_build" "/opt/rv"
+COPY --from=openstudiolandscapes-aswf-openrv-rocky9-cy2024-build_system:latest "${WORKDIR}/OpenRV/_build" "/opt/rv"
 
 CMD ["/bin/bash"]
 
 
 FROM rv_base AS installable_on_rocky
 
+# This will be for Apptainer
+
 #ENV RV_INST_DIR="/opt/rv"
 
 #WORKDIR ${RV_INST_DIR}
 
-COPY --from=openstudiolandscapes-aswf-openrv-rocky9-cy2024-build_system:latest "/home/rv/OpenRV/_install" "/opt/rv"
-#COPY --from=build_system "/home/rv/OpenRV/_install" "/opt/rv"
+COPY --from=openstudiolandscapes-aswf-openrv-rocky9-cy2024-build_system:latest "${WORKDIR}/OpenRV/_install" "/opt/rv"
+#COPY --from=build_system "${WORKDIR}/OpenRV/_install" "/opt/rv"
+#COPY --from=build_system "${WORKDIR}/OpenRV/_install" "/opt/rv"
 #COPY --from=build ${RV_INST_DIR} .
 
 ENV PATH="/opt/rv/bin:${PATH}"
