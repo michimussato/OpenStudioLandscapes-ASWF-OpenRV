@@ -96,12 +96,14 @@ cd OpenStudioLandscapes-ASWF-OpenRV
 
 
 ```shell
+# https://docs.docker.com/build/builders/drivers/docker-container/
 docker buildx \
     create \
     --name openrv_builder \
+    --driver docker-container \
+    --driver-opt default-load=true \
     --driver-opt env.BUILDKIT_STEP_LOG_MAX_SPEED=-1 \
     --driver-opt env.BUILDKIT_STEP_LOG_MAX_SIZE=-1
-#    `--driver-opt default-load=true` OR `--output type=docker` in build command
 ```
 
 > [!IMPORTANT]
@@ -109,6 +111,7 @@ docker buildx \
 > Don't remove custom builder if cache is needed
 > - https://docs.docker.com/build/cache/backends/local/
 > `docker buildx rm openrv_builder`
+> or remove it with [`--keep-state`](https://docs.docker.com/build/builders/drivers/docker-container/#cache-persistence)
 
 #### Build to Target
 
@@ -166,7 +169,7 @@ flowchart TB
     build_system_image -. "COPY --from/home/rv/OpenRV/_install" .-> installable_on_rocky
 ```
 
-##### `build_system`
+##### `rv_build`
 
 > [!TIP]
 > 
@@ -179,37 +182,57 @@ flowchart TB
 > an image from it so that we can
 > re-use it for subsequent steps.
 
-Build `build_system`
+Build `rv_build`
 
 ```shell
 # stage
-export TARGET="build_system"
+export TARGET="rv_build"
 
-# use `time`?
-time docker build \
-    --builder openrv_builder \
-    --target ${TARGET} \
-    --output type=docker \
-    --progress plain \
-    --shm-size=32g \
-    --tag openstudiolandscapes-aswf-openrv-rocky9-cy2024-${TARGET}:$(date "+%Y-%m-%d_%H-%M-%S") \
-    --tag openstudiolandscapes-aswf-openrv-rocky9-cy2024-${TARGET}:latest \
-    --file dockerfiles/Dockerfile.Linux-Rocky9-CY2024 \
-    ./dockerfiles  # --no-cache
-# Disable cache: --no-cache
+LOGS=./dockerfiles/logs
+mkdir -p ${LOGS}
 
+# ls && la && whoami || pwd && ls -alh
+# https://www.funwithlinux.net/blog/setting-environment-variables-for-multiple-commands-in-bash-one-liner/
+
+# while fail, retry
+# - https://stackoverflow.com/a/12967264/2207196
+# while ! i_can_fail; do :; done
+
+DOCKERFILE="Dockerfile.Linux-Rocky9-CY2024" \
+TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S") \
 NTFY_RSNAPSHOT_TOKEN=tk_amlipjwa7eb3rpxd00rsdshz5vyh5 \
     && /usr/bin/curl \
         -H "X-Title: OpenRV" \
         -H "Authorization: Bearer ${NTFY_RSNAPSHOT_TOKEN}" \
-        -d "Build to target ${TARGET} finished." https://ntfy.pangolin.openstudiolandscapes.cloud-ip.cc/builds
+        -d "Build to target ${TARGET} started..." https://ntfy.pangolin.openstudiolandscapes.cloud-ip.cc/builds \
+    && time docker build \
+        --builder openrv_builder \
+        --load \
+        --target ${TARGET} \
+        --output type=docker \
+        --progress plain \
+        --shm-size=32g \
+        --tag openstudiolandscapes-aswf-openrv-rocky9-cy2024-${TARGET}:$(date "+%Y-%m-%d_%H-%M-%S") \
+        --tag openstudiolandscapes-aswf-openrv-rocky9-cy2024-${TARGET}:latest \
+        --file dockerfiles/${DOCKERFILE} \
+        ./dockerfiles \
+        > >(tee -a ${LOGS}/${DOCKERFILE}.${TARGET}.${TIMESTAMP}.STDOUT.log) \
+        2> >(tee -a ${LOGS}/${DOCKERFILE}.${TARGET}.${TIMESTAMP}.STDERR.log >&2) \
+    && /usr/bin/curl \
+        -H "X-Title: OpenRV" \
+        -H "Authorization: Bearer ${NTFY_RSNAPSHOT_TOKEN}" \
+        -d "Build to target ${TARGET} finished." https://ntfy.pangolin.openstudiolandscapes.cloud-ip.cc/builds \
+    || /usr/bin/curl \
+        -H "X-Title: OpenRV" \
+        -H "Authorization: Bearer ${NTFY_RSNAPSHOT_TOKEN}" \
+        -d "Build to target ${TARGET} failed." https://ntfy.pangolin.openstudiolandscapes.cloud-ip.cc/builds
 ```
 
 > [!TIP]
 > 
-> To enter `build_system` interactively:
+> To enter `rv_build` interactively:
 > ```shell
-> export TARGET="build_system"
+> export TARGET="rv_build"
 > 
 > docker run \
 >     --shm-size=32g \
@@ -221,12 +244,17 @@ NTFY_RSNAPSHOT_TOKEN=tk_amlipjwa7eb3rpxd00rsdshz5vyh5 \
 > ```
 > 
 > To create a `tar` archive from the resulting build:
+> References:
+> - [Creating a tarball for distribution (without user/group information)](https://billauer.se/blog/2020/11/tar-create-owner-group/)
 > ```shell
 > source /etc/os-release
-> mkdir -p ./tarballs
-> pushd ./tarballs || exit 1
+> mkdir -p /root/OpenRV/tarballs
+> pushd /root/OpenRV/tarballs || exit 1
 > 
-> tar -C /home/rv/OpenRV/_install \
+> tar -C /root/OpenRV/_install \
+>     --owner=0 \
+>     --group=0 \
+>     --mode='og-w' \
 >     --create \
 >     --verbose \
 >     --file - . \
@@ -238,50 +266,95 @@ NTFY_RSNAPSHOT_TOKEN=tk_amlipjwa7eb3rpxd00rsdshz5vyh5 \
 >     > OpenRV-$(/home/rv/OpenRV/_install/bin/rv -version)-${ROCKY_SUPPORT_PRODUCT}-$(uname --hardware-platform).tar.xz
 > 
 > popd || exit 1
+> 
+> # Test Integrity
+> tar -C /root/OpenRV/tarballs --verbose --list --file ./tarballs/OpenRV-$(/root/OpenRV/_install/bin/rv -version)-${ROCKY_SUPPORT_PRODUCT}-$(uname --hardware-platform).tar.xz > /dev/null
 > ```
 > 
 > To copy the resulting `tar` archive to the Docker host:
 > ```shell
-> export TARGET="build_system"
+> export TARGET="rv_build"
 > 
 > mkdir -p ./OpenStudioLandscapes-ASWF-OpenRV-BuildBox-CY2024-${TARGET}
 > docker cp \
->     OpenStudioLandscapes-ASWF-OpenRV-BuildBox-CY2024-${TARGET}:/home/rv/OpenRV/tarballs/. \
+>     OpenStudioLandscapes-ASWF-OpenRV-BuildBox-CY2024-${TARGET}:/root/OpenRV/tarballs/. \
 >     ./OpenStudioLandscapes-ASWF-OpenRV-BuildBox-CY2024-${TARGET}
 > ```
 
-
-
-
-
-
-
-
-##### `installable_on_rocky`
+##### `rv_rocky`
 
 ```shell
-# stage
-export TARGET="installable_on_rocky"
+export TARGET="rv_rocky"
+
+LOGS=./dockerfiles/logs
+mkdir -p ${LOGS}
 
 # use `time`?
-docker build \
+# custom builder causes issue (--builder openrv_builder):
+# #5 [internal] load metadata for docker.io/library/openstudiolandscapes-aswf-openrv-rocky9-cy2024-build_system:latest
+# #5 ERROR: pull access denied, repository does not exist or may require authorization: server message: insufficient_scope: authorization failed
+# ------
+#  > [internal] load metadata for docker.io/library/openstudiolandscapes-aswf-openrv-rocky9-cy2024-build_system:latest:
+# ------
+# Dockerfile.Linux-Rocky9-CY2024:365
+# --------------------
+#  363 |     #WORKDIR ${RV_INST_DIR}
+#  364 |     
+#  365 | >>> COPY --from=openstudiolandscapes-aswf-openrv-rocky9-cy2024-build_system:latest "/home/rv/OpenRV/_install" "/opt/rv"
+#  366 |     #COPY --from=build_system "/home/rv/OpenRV/_install" "/opt/rv"
+#  367 |     #COPY --from=build_system "/home/rv/OpenRV/_install" "/opt/rv"
+# --------------------
+# ERROR: failed to build: failed to solve: openstudiolandscapes-aswf-openrv-rocky9-cy2024-build_system:latest: failed to resolve source metadata for docker.io/library/openstudiolandscapes-aswf-openrv-rocky9-cy2024-build_system:latest: pull access denied, repository does not exist or may require authorization: server message: insufficient_scope: authorization failed
+
+DOCKERFILE="Dockerfile.Linux-Rocky9-CY2024" \
+TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S") \
+NTFY_RSNAPSHOT_TOKEN=tk_amlipjwa7eb3rpxd00rsdshz5vyh5 \
+    && /usr/bin/curl \
+        -H "X-Title: OpenRV" \
+        -H "Authorization: Bearer ${NTFY_RSNAPSHOT_TOKEN}" \
+        -d "Build to target ${TARGET} started..." https://ntfy.pangolin.openstudiolandscapes.cloud-ip.cc/builds \
+    && time docker build \
     --builder openrv_builder \
+    --load \
     --target ${TARGET} \
     --output type=docker \
     --progress plain \
     --shm-size=32g \
     --tag openstudiolandscapes-aswf-openrv-rocky9-cy2024-${TARGET}:$(date "+%Y-%m-%d_%H-%M-%S") \
     --tag openstudiolandscapes-aswf-openrv-rocky9-cy2024-${TARGET}:latest \
-    --file dockerfiles/Dockerfile.Linux-Rocky9-CY2024 \
-    ./dockerfiles  # --no-cache
-# Disable cache: --no-cache
-
-NTFY_RSNAPSHOT_TOKEN=tk_amlipjwa7eb3rpxd00rsdshz5vyh5 \
+    --file dockerfiles/${DOCKERFILE} \
+    ./dockerfiles \
+    > >(tee -a ${LOGS}/${DOCKERFILE}.${TARGET}.${TIMESTAMP}.STDOUT.log) \
+    2> >(tee -a ${LOGS}/${DOCKERFILE}.${TARGET}.${TIMESTAMP}.STDERR.log >&2) \
     && /usr/bin/curl \
-        -H "X-Title: OpenRV " \
+        -H "X-Title: OpenRV" \
         -H "Authorization: Bearer ${NTFY_RSNAPSHOT_TOKEN}" \
-        -d "Build to target ${TARGET} finished." https://ntfy.pangolin.openstudiolandscapes.cloud-ip.cc/builds
+        -d "Build to target ${TARGET} finished." https://ntfy.pangolin.openstudiolandscapes.cloud-ip.cc/builds \
+    || /usr/bin/curl \
+        -H "X-Title: OpenRV" \
+        -H "Authorization: Bearer ${NTFY_RSNAPSHOT_TOKEN}" \
+        -d "Build to target ${TARGET} failed." https://ntfy.pangolin.openstudiolandscapes.cloud-ip.cc/builds
 ```
+
+> [!TIP]
+> 
+> To enter `rv_rocky` interactively:
+> ```shell
+> export TARGET="rv_rocky"
+> 
+> docker run \
+>     --shm-size=32g \
+>     --rm \
+>     --interactive \
+>     --tty \
+>     --name OpenStudioLandscapes-ASWF-OpenRV-BuildBox-CY2024-${TARGET} \
+>     openstudiolandscapes-aswf-openrv-rocky9-cy2024-${TARGET}:latest /bin/bash
+> ```
+
+
+
+
+
 
 ## Step 2 - Run the container and enter
 
