@@ -188,7 +188,7 @@ Build `rv_build`
 # stage
 export TARGET="rv_build"
 
-LOGS=./dockerfiles/logs
+LOGS=./dockerfiles/.logs
 mkdir -p ${LOGS}
 
 # ls && la && whoami || pwd && ls -alh
@@ -286,7 +286,7 @@ NTFY_RSNAPSHOT_TOKEN=tk_amlipjwa7eb3rpxd00rsdshz5vyh5 \
 ```shell
 export TARGET="rv_rocky"
 
-LOGS=./dockerfiles/logs
+LOGS=./dockerfiles/.logs
 mkdir -p ${LOGS}
 
 # use `time`?
