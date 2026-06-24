@@ -212,7 +212,7 @@ NTFY_RSNAPSHOT_TOKEN=tk_amlipjwa7eb3rpxd00rsdshz5vyh5 \
         --output type=docker \
         --progress plain \
         --shm-size=32g \
-        --tag openstudiolandscapes-aswf-openrv-rocky9-cy2024-${TARGET}:$(date "+%Y-%m-%d_%H-%M-%S") \
+        --tag openstudiolandscapes-aswf-openrv-rocky9-cy2024-${TARGET}:${TIMESTAMP} \
         --tag openstudiolandscapes-aswf-openrv-rocky9-cy2024-${TARGET}:latest \
         --file dockerfiles/${DOCKERFILE} \
         ./dockerfiles \
@@ -320,7 +320,7 @@ NTFY_RSNAPSHOT_TOKEN=tk_amlipjwa7eb3rpxd00rsdshz5vyh5 \
     --output type=docker \
     --progress plain \
     --shm-size=32g \
-    --tag openstudiolandscapes-aswf-openrv-rocky9-cy2024-${TARGET}:$(date "+%Y-%m-%d_%H-%M-%S") \
+    --tag openstudiolandscapes-aswf-openrv-rocky9-cy2024-${TARGET}:${TIMESTAMP} \
     --tag openstudiolandscapes-aswf-openrv-rocky9-cy2024-${TARGET}:latest \
     --file dockerfiles/${DOCKERFILE} \
     ./dockerfiles \
