@@ -445,7 +445,7 @@ function rvcfg() {
   echo "rvcfg args: ${*}"
   cmd="cmake -B ${RV_BUILD_DIR} -G '${CMAKE_GENERATOR}' ${RV_TOOLCHAIN} ${CMAKE_WIN_ARCH} -DCMAKE_BUILD_TYPE=${RV_BUILD_TYPE} -DRV_DEPS_QT_LOCATION=${QT_HOME} -DRV_VFX_PLATFORM=${RV_VFX_PLATFORM} -DRV_DEPS_WIN_PERL_ROOT=${WIN_PERL} ${*}"
   echo "Running cmd: ${cmd}"
-  ${cmd}
+  eval ${cmd}
   echo "rvcfg done."
 }
 
@@ -474,7 +474,7 @@ function rvtest() {
   rvenv
   cmd="ctest --test-dir ${RV_BUILD_DIR} --extra-verbose"
   echo "Running cmd: ${cmd}"
-  ${cmd}
+  eval ${cmd}
   echo "rvtest done."
 }
 
@@ -485,7 +485,7 @@ function rvinst() {
   cmd="cmake --install ${RV_BUILD_DIR} --prefix ${RV_INST_DIR} --config ${RV_BUILD_TYPE}"
   echo "Running cmd: ${cmd}"
   # cmake --install ${RV_BUILD_DIR} --prefix ${RV_INST_DIR} --config ${RV_BUILD_TYPE}
-  ${cmd}
+  eval ${cmd}
   echo "rvinst done."
 }
 
