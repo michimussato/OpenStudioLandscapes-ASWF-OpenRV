@@ -446,8 +446,7 @@ function rvbuildt() {
   echo "Starting rvbuildt..."
   # alias rvbuildt='rvenv && __rv_build_with_errors'
   rvenv
-  echo "RVBUILDT_ARGS"
-  echo "${*}"
+  echo "rvbuildt args: ${*}"
   __rv_build_with_errors ${*}
   echo "rvbuildt done."
 }
