@@ -442,7 +442,7 @@ function rvbuildt() {
   __rv_build_with_errors
 }
 
-function foo() {
+function rvbuild() {
   # alias rvbuild='rvenv && rvbuildt main_executable'
   rvenv
   rvbuildt main_executable
