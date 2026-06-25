@@ -82,65 +82,82 @@ cd OpenStudioLandscapes-ASWF-OpenRV
 
 ### Dockerfile.Linux-Rocky9-CY2024
 
-#### Create Builder
+#### Disable Log Clipping
 
 > [!TIP]
 > 
 > Prevent Docker Log Clipping for this build
 > - i.e. [output clipped, log limit 2MiB reached]
+
+Add
+
+```
+Environment="BUILDKIT_STEP_LOG_MAX_SIZE=-1"
+Environment="BUILDKIT_STEP_LOG_MAX_SPEED=-1"
+```
+
+to the `[service]` section in `/usr/lib/systemd/system/docker.service`
+and
+
+```shell
+sudo systemctl daemon-reload
+sudo systemctl restart docker.service
+```
+
+> [!TIP]
+> 
+> To revent Docker Log Clipping, we could also create
+> and use a custom builder:
+> ```shell
+> # https://docs.docker.com/build/builders/drivers/docker-container/
+> docker \
+>     --debug \
+>     --config /home/michael/.local/share/OpenStudioLandscapes/.landscapes/2026-06-25_08-51-54__healthy-showy-muddled-building/OpenStudioLandscapes/OpenStudioLandscapes_Base__docker_config_json \
+>     buildx \
+>     create \
+>     --name openrv_builder \
+>     --driver docker-container \
+>     --driver-opt default-load=true \
+>     --driver-opt env.BUILDKIT_STEP_LOG_MAX_SPEED=-1 \
+>     --driver-opt env.BUILDKIT_STEP_LOG_MAX_SIZE=-1
+> ```
 > 
 > Apparently, we run into other issues when using
-> a custom builder complaining about the self signed
-> CA certificate:
-> ```
-> #2 [internal] load metadata for registry.openstudiolandscapes.lan:5000/openrv/openstudiolandscapes-aswf-openrv-rocky9-cy2024-openrv_base:latest
-> #2 ERROR: failed to do request: Head "https://registry.openstudiolandscapes.lan:5000/v2/openrv/openstudiolandscapes-aswf-openrv-rocky9-cy2024-openrv_base/manifests/latest": tls: failed to verify certificate: x509: certificate signed by unknown authority
-> ------
->  > [internal] load metadata for registry.openstudiolandscapes.lan:5000/openrv/openstudiolandscapes-aswf-openrv-rocky9-cy2024-openrv_base:latest:
-> ------
-> Dockerfile.Linux-Rocky9-CY2024:159
-> --------------------
->  157 |     
->  158 |     # Stage 2
->  159 | >>> FROM registry.openstudiolandscapes.lan:5000/openrv/openstudiolandscapes-aswf-openrv-rocky9-cy2024-openrv_base:latest AS rv_build
->  160 |     
->  161 |     USER rv
-> --------------------
-> ERROR: failed to build: failed to solve: registry.openstudiolandscapes.lan:5000/openrv/openstudiolandscapes-aswf-openrv-rocky9-cy2024-openrv_base:latest: failed to resolve source metadata for registry.openstudiolandscapes.lan:5000/openrv/openstudiolandscapes-aswf-openrv-rocky9-cy2024-openrv_base:latest: failed to do request: Head "https://registry.openstudiolandscapes.lan:5000/v2/openrv/openstudiolandscapes-aswf-openrv-rocky9-cy2024-openrv_base/manifests/latest": tls: failed to verify certificate: x509: certificate signed by unknown authority
-> ```
-> 
-> Let's try this:
-> - https://stackoverflow.com/a/71845726/2207196
-
-`buildx`
-- https://github.com/docker/buildx/issues/484#issuecomment-3299100959
-- https://oneuptime.com/blog/post/2026-02-08-how-to-use-docker-buildx-commands-for-advanced-builds/view
-- https://docs.docker.com/build/builders/drivers/
-
-List current builders:
-
-```shell
-docker \
-    --debug \
-    --config /home/michael/.local/share/OpenStudioLandscapes/.landscapes/2026-06-25_08-51-54__healthy-showy-muddled-building/OpenStudioLandscapes/OpenStudioLandscapes_Base__docker_config_json \
-    builder ls
-```
-
-```shell
-# https://docs.docker.com/build/builders/drivers/docker-container/
-docker \
-    --debug \
-    --config /home/michael/.local/share/OpenStudioLandscapes/.landscapes/2026-06-25_08-51-54__healthy-showy-muddled-building/OpenStudioLandscapes/OpenStudioLandscapes_Base__docker_config_json \
-    buildx \
-    create \
-    --name openrv_builder \
-    --driver docker-container \
-    --driver-opt default-load=true \
-    --driver-opt env.BUILDKIT_STEP_LOG_MAX_SPEED=-1 \
-    --driver-opt env.BUILDKIT_STEP_LOG_MAX_SIZE=-1
-```
-
-> [!IMPORTANT]
+> a custom builder:
+> - when using a local image:
+>   ```
+>   #5 [internal] load metadata for docker.io/library/openstudiolandscapes-aswf-openrv-rocky9-cy2024-build_system:latest
+>   #5 ERROR: pull access denied, repository does not exist or may require authorization: server message: insufficient_scope: authorization failed
+>   ------
+>    > [internal] load metadata for docker.io/library/openstudiolandscapes-aswf-openrv-rocky9-cy2024-build_system:latest:
+>   ------
+>   Dockerfile.Linux-Rocky9-CY2024:365
+>   --------------------
+>    363 |     #WORKDIR ${RV_INST_DIR}
+>    364 |     
+>    365 | >>> COPY --from=openstudiolandscapes-aswf-openrv-rocky9-cy2024-build_system:latest "/home/rv/OpenRV/_install" "/opt/rv"
+>    366 |     #COPY --from=build_system "/home/rv/OpenRV/_install" "/opt/rv"
+>    367 |     #COPY --from=build_system "/home/rv/OpenRV/_install" "/opt/rv"
+>   --------------------
+>   ERROR: failed to build: failed to solve: openstudiolandscapes-aswf-openrv-rocky9-cy2024-build_system:latest: failed to resolve source metadata for docker.io/library/openstudiolandscapes-aswf-openrv-rocky9-cy2024-build_system:latest: pull access denied, repository does not exist or may require authorization: server message: insufficient_scope: authorization failed
+>   ```
+> - when using a self signed CA certificate:
+>   ```
+>   #2 [internal] load metadata for registry.openstudiolandscapes.lan:5000/openrv/openstudiolandscapes-aswf-openrv-rocky9-cy2024-openrv_base:latest
+>   #2 ERROR: failed to do request: Head "https://registry.openstudiolandscapes.lan:5000/v2/openrv/openstudiolandscapes-aswf-openrv-rocky9-cy2024-openrv_base/manifests/latest": tls: failed to verify certificate: x509: certificate signed by unknown authority
+>   ------
+>    > [internal] load metadata for registry.openstudiolandscapes.lan:5000/openrv/openstudiolandscapes-aswf-openrv-rocky9-cy2024-openrv_base:latest:
+>   ------
+>   Dockerfile.Linux-Rocky9-CY2024:159
+>   --------------------
+>    157 |     
+>    158 |     # Stage 2
+>    159 | >>> FROM registry.openstudiolandscapes.lan:5000/openrv/openstudiolandscapes-aswf-openrv-rocky9-cy2024-openrv_base:latest AS rv_build
+>    160 |     
+>    161 |     USER rv
+>   --------------------
+>   ERROR: failed to build: failed to solve: registry.openstudiolandscapes.lan:5000/openrv/openstudiolandscapes-aswf-openrv-rocky9-cy2024-openrv_base:latest: failed to resolve source metadata for registry.openstudiolandscapes.lan:5000/openrv/openstudiolandscapes-aswf-openrv-rocky9-cy2024-openrv_base:latest: failed to do request: Head "https://registry.openstudiolandscapes.lan:5000/v2/openrv/openstudiolandscapes-aswf-openrv-rocky9-cy2024-openrv_base/manifests/latest": tls: failed to verify certificate: x509: certificate signed by unknown authority
+>   ```
 > 
 > Don't remove custom builder if cache is needed
 > - https://docs.docker.com/build/cache/backends/local/
@@ -241,8 +258,6 @@ NTFY_RSNAPSHOT_TOKEN=tk_amlipjwa7eb3rpxd00rsdshz5vyh5 \
         --debug \
         --config /home/michael/.local/share/OpenStudioLandscapes/.landscapes/2026-06-25_08-51-54__healthy-showy-muddled-building/OpenStudioLandscapes/OpenStudioLandscapes_Base__docker_config_json \
         build \
-        --builder openrv_builder \
-        --load \
         --pull \
         --target ${TARGET} \
         --output type=docker \
@@ -402,21 +417,6 @@ LOGS=./dockerfiles/.logs
 mkdir -p ${LOGS}
 
 # use `time`?
-# custom builder causes issue (--builder openrv_builder):
-# #5 [internal] load metadata for docker.io/library/openstudiolandscapes-aswf-openrv-rocky9-cy2024-build_system:latest
-# #5 ERROR: pull access denied, repository does not exist or may require authorization: server message: insufficient_scope: authorization failed
-# ------
-#  > [internal] load metadata for docker.io/library/openstudiolandscapes-aswf-openrv-rocky9-cy2024-build_system:latest:
-# ------
-# Dockerfile.Linux-Rocky9-CY2024:365
-# --------------------
-#  363 |     #WORKDIR ${RV_INST_DIR}
-#  364 |     
-#  365 | >>> COPY --from=openstudiolandscapes-aswf-openrv-rocky9-cy2024-build_system:latest "/home/rv/OpenRV/_install" "/opt/rv"
-#  366 |     #COPY --from=build_system "/home/rv/OpenRV/_install" "/opt/rv"
-#  367 |     #COPY --from=build_system "/home/rv/OpenRV/_install" "/opt/rv"
-# --------------------
-# ERROR: failed to build: failed to solve: openstudiolandscapes-aswf-openrv-rocky9-cy2024-build_system:latest: failed to resolve source metadata for docker.io/library/openstudiolandscapes-aswf-openrv-rocky9-cy2024-build_system:latest: pull access denied, repository does not exist or may require authorization: server message: insufficient_scope: authorization failed
 
 DOCKERFILE="Dockerfile.Linux-Rocky9-CY2024" \
 TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S") \
@@ -426,8 +426,6 @@ NTFY_RSNAPSHOT_TOKEN=tk_amlipjwa7eb3rpxd00rsdshz5vyh5 \
         -H "Authorization: Bearer ${NTFY_RSNAPSHOT_TOKEN}" \
         -d "Build to target ${TARGET} started..." https://ntfy.pangolin.openstudiolandscapes.cloud-ip.cc/builds \
     && time docker build \
-    --builder openrv_builder \
-    --load \
     --target ${TARGET} \
     --output type=docker \
     --progress plain \
