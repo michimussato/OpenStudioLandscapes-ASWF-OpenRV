@@ -414,7 +414,7 @@ __rv_build_with_errors() {
 
 # Single set of aliases using current build variables
 # Note: Single quotes preserve variables for expansion at execution time
-# Aliases are useless in Docker containers
+# Aliases are useless in Dockerfiles
 # alias rvappdir='cd ${RV_APP_DIR}'
 # alias rvhomedir='cd ${RV_HOME}'
 
@@ -422,6 +422,7 @@ function rvenv() {
   echo "Starting rvenv..."
   # alias rvenv='rvhomedir && __rv_env_shell'
   cd ${RV_HOME}
+  echo "Running cmd: __rv_env_shell"
   __rv_env_shell
   echo "rvenv done."
 }
@@ -430,7 +431,10 @@ function rvsetup() {
   echo "Starting rvsetup..."
   # alias rvsetup='rvenv && SETUPTOOLS_USE_DISTUTILS=${SETUPTOOLS_USE_DISTUTILS} python3 -m pip install --upgrade -r ${RV_HOME}/requirements.txt'
   rvenv
-  SETUPTOOLS_USE_DISTUTILS=${SETUPTOOLS_USE_DISTUTILS} python3 -m pip install --upgrade -r ${RV_HOME}/requirements.txt
+  cmd="SETUPTOOLS_USE_DISTUTILS=${SETUPTOOLS_USE_DISTUTILS} python3 -m pip install --upgrade -r ${RV_HOME}/requirements.txt"
+  echo "Running cmd: ${cmd}"
+  echo "Using Python interpreter: $(which python3)"
+  ${cmd}
   echo "rvsetup done."
 }
 
@@ -439,7 +443,9 @@ function rvcfg() {
   # alias rvcfg='rvhomedir && rvenv && cmake -B ${RV_BUILD_DIR} -G "${CMAKE_GENERATOR}" ${RV_TOOLCHAIN} ${CMAKE_WIN_ARCH} -DCMAKE_BUILD_TYPE=${RV_BUILD_TYPE} -DRV_DEPS_QT_LOCATION=${QT_HOME} -DRV_VFX_PLATFORM=${RV_VFX_PLATFORM} -DRV_DEPS_WIN_PERL_ROOT=${WIN_PERL}'
   rvenv
   echo "rvcfg args: ${*}"
-  cmake -B ${RV_BUILD_DIR} -G "${CMAKE_GENERATOR}" ${RV_TOOLCHAIN} ${CMAKE_WIN_ARCH} -DCMAKE_BUILD_TYPE=${RV_BUILD_TYPE} -DRV_DEPS_QT_LOCATION=${QT_HOME} -DRV_VFX_PLATFORM=${RV_VFX_PLATFORM} -DRV_DEPS_WIN_PERL_ROOT=${WIN_PERL} ${*}
+  cmd="cmake -B ${RV_BUILD_DIR} -G '${CMAKE_GENERATOR}' ${RV_TOOLCHAIN} ${CMAKE_WIN_ARCH} -DCMAKE_BUILD_TYPE=${RV_BUILD_TYPE} -DRV_DEPS_QT_LOCATION=${QT_HOME} -DRV_VFX_PLATFORM=${RV_VFX_PLATFORM} -DRV_DEPS_WIN_PERL_ROOT=${WIN_PERL} ${*}"
+  echo "Running cmd: ${cmd}"
+  ${cmd}
   echo "rvcfg done."
 }
 
@@ -452,10 +458,12 @@ function rvbuildt() {
   echo "rvbuildt done."
 }
 
+# Overcomplication on purpose?
 function rvbuild() {
   echo "Starting rvbuild..."
   # alias rvbuild='rvenv && rvbuildt main_executable'
   rvenv
+  echo "Running cmd: rvbuildt main_executable"
   rvbuildt main_executable
   echo "rvbuild done."
 }
@@ -464,7 +472,9 @@ function rvtest() {
   echo "Starting rvtest..."
   # alias rvtest='rvenv && ctest --test-dir ${RV_BUILD_DIR} --extra-verbose'
   rvenv
-  ctest --test-dir ${RV_BUILD_DIR} --extra-verbose
+  cmd="ctest --test-dir ${RV_BUILD_DIR} --extra-verbose"
+  echo "Running cmd: ${cmd}"
+  ${cmd}
   echo "rvtest done."
 }
 
@@ -472,7 +482,10 @@ function rvinst() {
   echo "Starting rvinst..."
   # alias rvinst='rvenv && cmake --install ${RV_BUILD_DIR} --prefix ${RV_INST_DIR} --config ${RV_BUILD_TYPE}'
   rvenv
-  cmake --install ${RV_BUILD_DIR} --prefix ${RV_INST_DIR} --config ${RV_BUILD_TYPE}
+  cmd="cmake --install ${RV_BUILD_DIR} --prefix ${RV_INST_DIR} --config ${RV_BUILD_TYPE}"
+  echo "Running cmd: ${cmd}"
+  # cmake --install ${RV_BUILD_DIR} --prefix ${RV_INST_DIR} --config ${RV_BUILD_TYPE}
+  ${cmd}
   echo "rvinst done."
 }
 
@@ -480,6 +493,7 @@ function rvclean() {
   echo "Starting rvclean..."
   # alias rvclean='rvhomedir && __rv_clean_build'
   cd ${RV_HOME}
+  echo "Running cmd: __rv_clean_build"
   __rv_clean_build
   echo "rvclean done."
 }
@@ -500,6 +514,7 @@ function rvbootstrap() {
   echo "rvbootstrap done."
 }
 
+# Overcomplication on purpose?
 function rvrun() {
   echo "Starting rvrun..."
   # alias rvrun='rvappdir && ./rv'
