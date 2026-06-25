@@ -431,10 +431,10 @@ function rvsetup() {
   echo "Starting rvsetup..."
   # alias rvsetup='rvenv && SETUPTOOLS_USE_DISTUTILS=${SETUPTOOLS_USE_DISTUTILS} python3 -m pip install --upgrade -r ${RV_HOME}/requirements.txt'
   rvenv
-  cmd="SETUPTOOLS_USE_DISTUTILS=${SETUPTOOLS_USE_DISTUTILS:-""} python3 -m pip install --upgrade -r ${RV_HOME}/requirements.txt"
+  cmd="SETUPTOOLS_USE_DISTUTILS=${SETUPTOOLS_USE_DISTUTILS} python3 -m pip install --upgrade -r ${RV_HOME}/requirements.txt"
   echo "Running cmd: ${cmd}"
   echo "Using Python interpreter: $(which python3)"
-  ${cmd}
+  eval ${cmd}
   echo "rvsetup done."
 }
 
