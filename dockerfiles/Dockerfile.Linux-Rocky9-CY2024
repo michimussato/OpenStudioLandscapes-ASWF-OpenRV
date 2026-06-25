@@ -6,15 +6,6 @@ SHELL ["/bin/bash", "-c"]
 
 ENV WORKDIR="/home/rv"
 
-# Create and run as user rv:rv
-RUN groupadd --gid 1001 rv
-RUN useradd --uid 1001 --gid 1001 --create-home --home-dir ${WORKDIR} --shell /bin/bash rv
-
-USER root
-
-
-FROM openrv_base AS rv_os_build
-
 # static versions:
 ENV CMAKE_VERSION="3.31.6"
 ENV NINJA_VERSION="1.12.1"
@@ -108,25 +99,92 @@ RUN dnf groupinstall "Development Tools" -y \
 RUN dnf config-manager --set-disabled devel
 
 # Install CMake
+ENV PATH="/usr/local/bin:${PATH}"
 RUN curl -L https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}-linux-x86_64.sh -o cmake.sh && \
     sh cmake.sh --prefix=/usr/local/ --skip-license && \
     rm -rf cmake.sh
 
 ## Create and run as user rv
 #RUN useradd --uid 1001 --create-home --home-dir ${WORKDIR} --shell /bin/bash rv
+# Create and run as user rv:rv
+RUN groupadd --gid 1001 rv
+RUN useradd --uid 1001 --gid 1001 --create-home --home-dir ${WORKDIR} --shell /bin/bash rv
 WORKDIR ${WORKDIR}
 USER rv
 
 # Install Rust (>=1.92)
 # - https://aswf-openrv.readthedocs.io/en/latest/build_system/config_macos.html#install-tools-and-build-dependencies
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-
-ENV PATH="${WORKDIR}/.local/bin:${PATH}"
-ENV PATH="/usr/local/bin:${PATH}"
+#
+# with user root:
+# #11 2.285 warn: It looks like you have an existing rustup settings file at:
+# #11 2.285 warn: /root/.rustup/settings.toml
+# #11 2.285 warn: Rustup will install the default toolchain as specified in the settings file,
+# #11 2.285 warn: instead of the one inferred from the default host triple.
+# #11 2.305 info: profile set to default
+# #11 2.305 info: default host triple is x86_64-unknown-linux-gnu
+# #11 2.306 info: syncing channel updates for stable-x86_64-unknown-linux-gnu
+# #11 5.470 info: latest update on 2026-05-28 for version 1.96.0 (ac68faa20 2026-05-25)
+# #11 5.470 info: downloading 6 components
+#
+# $ cat /root/.rustup/settings.toml
+# version = "12"
+# default_toolchain = "stable-x86_64-unknown-linux-gnu"
+# profile = "default"
+#
+# [overrides]
+#
+# $ ls -al /root/.rustup/
+# total 32
+# drwxr-xr-x 6 root root 4096 Jun 25 08:53 .
+# dr-xr-x--- 1 root root 4096 Jun 25 10:09 ..
+# drwxr-xr-x 2 root root 4096 Jun 25 08:53 downloads
+# -rw-r--r-- 1 root root  102 Jun 25 08:53 settings.toml
+# drwxr-xr-x 2 root root 4096 Jun 25 08:53 tmp
+# drwxr-xr-x 3 root root 4096 Jun 25 08:53 toolchains
+# drwxr-xr-x 2 root root 4096 Jun 25 08:53 update-hashes
+#
+# #8 2977.7 ninja: build stopped: cannot make progress due to previous errors.
+# #8 2977.7
+# #8 2977.7
+# #8 2977.7
+# #8 2977.7 ════════════════════════════════════════════════════════════════
+# #8 2977.7 ✗ BUILD FAILED - Error Summary
+# #8 2977.7 ════════════════════════════════════════════════════════════════
+# #8 2977.7
+# #8 2977.7 🔥 Compilation Errors Found:
+# #8 2977.7 ────────────────────────────────────────────────────────────────
+# #8 2977.7 FAILED: src/lib/audio/ALSASafeAudioModule/CMakeFiles/ALSASafeAudioModule.dir/ALSASafeAudioRenderer.cpp.o
+# #8 2977.7 /root/OpenRV/src/lib/mu/Mu/Mu/config.h:129:10: fatal error: gc/gc.h: No such file or directory
+# #8 2977.7 ────────────────────────────────────────────────────────────────
+# #8 2977.7
+# #8 2977.7 📝 Full build log: /root/OpenRV/_build/build_errors.log
+# #8 2977.7 📝 Error summary: /root/OpenRV/_build/error_summary.txt
+# #8 2977.7
+# #8 2977.7 💡 Tips:
+# #8 2977.7   • Review the error summary above
+# #8 2977.7   • Check full log: less /root/OpenRV/_build/build_errors.log
+# #8 2977.7   • Search for specific errors: command grep -i 'your_error' /root/OpenRV/_build/build_errors.log
+# #8 2977.7 ════════════════════════════════════════════════════════════════
+#
+#
+# with user rv:
+#
+# 13 3.617 warn: It looks like you have an existing rustup settings file at:
+# 13 3.617 warn: /home/rv/.rustup/settings.toml
+# 13 3.617 warn: Rustup will install the default toolchain as specified in the settings file,
+# 13 3.617 warn: instead of the one inferred from the default host triple.
+# 13 3.636 info: profile set to default
+# 13 3.636 info: default host triple is x86_64-unknown-linux-gnu
+# 13 3.636 info: syncing channel updates for stable-x86_64-unknown-linux-gnu
+# 13 3.907 info: latest update on 2026-05-28 for version 1.96.0 (ac68faa20 2026-05-25)
+# 13 3.907 info: downloading 6 components
+#
+#
+#
+# instead of `source "$HOME/.cargo/env"`
 ENV PATH="${WORKDIR}/.cargo/bin:${PATH}"
-ENV PATH="${WORKDIR}/ninja:${PATH}"
-
-ENV QT_QPA_PLATFORM="offscreen"
+#ENV PATH="${WORKDIR}/.local/bin:${PATH}"
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 
 # Install Ninja
 ENV PATH="${WORKDIR}/ninja:${PATH}"
@@ -134,6 +192,7 @@ RUN wget https://github.com/ninja-build/ninja/releases/download/v${NINJA_VERSION
     unzip ninja-linux.zip -d ./ninja
 
 # Install pyenv
+ENV PIP_ROOT_USER_ACTION=ignore
 ENV PYENV_ROOT="${WORKDIR}/.pyenv"
 ENV PATH="${PYENV_ROOT}/shims:${PYENV_ROOT}/bin:${PATH}"
 RUN git clone http://github.com/pyenv/pyenv.git ${WORKDIR}/.pyenv
@@ -143,24 +202,38 @@ RUN echo 'eval "$(pyenv init -)"' >> ~/.bashrc
 RUN pyenv install ${PYTHON_VERSION}
 RUN pyenv global ${PYTHON_VERSION}
 
+RUN pip install --upgrade pip
+
 RUN python -m pip install aqtinstall
 
 # Install Qt
 # This does not seem to cache
+ENV QT_QPA_PLATFORM="offscreen"
 RUN python -m aqt install-qt linux desktop ${QT_VERSION} gcc_64 -O ~/Qt \
     -m ${QT_MODULES} \
     --archives ${QT_ARCHIVES}
 
 CMD ["/bin/bash"]
 
-# Stage 2
-FROM rv_os_build AS rv_build
 
-USER rv
+#FROM openrv_base AS rv_os_build
+#
+## Create and run as user rv:rv
+#RUN groupadd --gid 1001 rv
+#RUN useradd --uid 1001 --gid 1001 --create-home --home-dir ${WORKDIR} --shell /bin/bash rv
+#
+#USER root
+#
+#CMD ["/bin/bash"]
+
+# Stage 2
+FROM registry.openstudiolandscapes.lan:5000/openrv/openstudiolandscapes-aswf-openrv-rocky9-cy2024-openrv_base:latest AS rv_clone
+
+# USER rv
 
 # Build OpenRV
 WORKDIR ${WORKDIR}/OpenRV
-RUN git clone --recursive https://github.com/AcademySoftwareFoundation/OpenRV.git .
+RUN git clone --recursive https://github.com/michimussato/OpenStudioLandscapes-ASWF-OpenRV.git .
 
 # RUN ls -al
 # RUN cat rvcmds.sh
@@ -198,16 +271,49 @@ RUN git clone --recursive https://github.com/AcademySoftwareFoundation/OpenRV.gi
 #     `rvbuildt` unpacks to:
 #     - `rvenv && __rv_build_with_errors`
 
-RUN source rvcmds.sh \
-    && cd ${RV_HOME} \
-    && __rv_env_shell \
-    && SETUPTOOLS_USE_DISTUTILS=${SETUPTOOLS_USE_DISTUTILS} python3 -m pip install --upgrade -r ${RV_HOME}/requirements.txt \
-    && cmake -B ${RV_BUILD_DIR} -G "${CMAKE_GENERATOR}" ${RV_TOOLCHAIN} ${CMAKE_WIN_ARCH} -DCMAKE_BUILD_TYPE=${RV_BUILD_TYPE} -DRV_DEPS_QT_LOCATION=${QT_HOME} -DRV_VFX_PLATFORM=${RV_VFX_PLATFORM} -DRV_DEPS_WIN_PERL_ROOT=${WIN_PERL} \
-    && __rv_build_with_errors main_executable \
-    && cmake --install ${RV_BUILD_DIR} --prefix ${RV_INST_DIR} --config ${RV_BUILD_TYPE}
+# RUN source rvcmds.sh \
+#     && cd ${RV_HOME} \
+#     && __rv_env_shell \
+#     && SETUPTOOLS_USE_DISTUTILS=${SETUPTOOLS_USE_DISTUTILS} python3 -m pip install --upgrade -r ${RV_HOME}/requirements.txt \
+#     && cmake -B ${RV_BUILD_DIR} -G "${CMAKE_GENERATOR}" ${RV_TOOLCHAIN} ${CMAKE_WIN_ARCH} -DCMAKE_BUILD_TYPE=${RV_BUILD_TYPE} -DRV_DEPS_QT_LOCATION=${QT_HOME} -DRV_VFX_PLATFORM=${RV_VFX_PLATFORM} -DRV_DEPS_WIN_PERL_ROOT=${WIN_PERL} \
+#     && __rv_build_with_errors main_executable \
+#     && cmake --install ${RV_BUILD_DIR} --prefix ${RV_INST_DIR} --config ${RV_BUILD_TYPE}
 
+#     && rvbuild || rvbuild \
 
 CMD ["/bin/bash"]
+
+
+# Multi step:
+FROM registry.openstudiolandscapes.lan:5000/openrv/openstudiolandscapes-aswf-openrv-rocky9-cy2024-rv_clone:latest AS rv_configure
+# 1. Configure
+# #6 3.220   Failed to install pre-commit hooks.
+# rvcfg with non_free:
+# - `rvcfg -DRV_FFMPEG_NON_FREE_DECODERS_TO_ENABLE="aac\;hevc" -DRV_FFMPEG_NON_FREE_ENCODERS_TO_ENABLE="aac"`
+RUN source rvcmds.sh \
+    && rvsetup \
+    && rvcfg
+
+FROM registry.openstudiolandscapes.lan:5000/openrv/openstudiolandscapes-aswf-openrv-rocky9-cy2024-rv_configure:latest AS rv_dependencies
+# 2. Build Third Party Dependencies
+RUN source rvcmds.sh \
+    && rvbuildt dependencies
+
+FROM registry.openstudiolandscapes.lan:5000/openrv/openstudiolandscapes-aswf-openrv-rocky9-cy2024-rv_dependencies:latest AS rv_build
+# 3. Build OpenRV
+RUN source rvcmds.sh \
+    && rvbuildt main_executable  # or `rvbuild`
+
+FROM registry.openstudiolandscapes.lan:5000/openrv/openstudiolandscapes-aswf-openrv-rocky9-cy2024-rv_build:latest AS rv_install
+# 4. Build OpenRV
+RUN source rvcmds.sh \
+    && rvinst
+
+# RUN source rvcmds.sh \
+#     && rvsetup \
+#     && rvcfg \
+#     && rvbuildt main_executable || rvbuildt main_executable \
+#     && rvinst
 
 
 # BUILD TARGETS
@@ -343,5 +449,5 @@ ENV PATH="/opt/rv/bin:${PATH}"
 # [1:1:0624/152842.627912:ERROR:zygote_host_impl_linux.cc(100)] Running as root without --no-sandbox is not supported. See https://crbug.com/638180.
 USER rv
 
-ENTRYPOINT ["/opt/bin/rv"]
+ENTRYPOINT ["/opt/rv/bin/rv"]
 # CMD ["/opt/bin/rv"]
