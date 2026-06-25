@@ -439,6 +439,7 @@ function rvcfg() {
 function rvbuildt() {
   # alias rvbuildt='rvenv && __rv_build_with_errors'
   rvenv
+  echo "${*}"
   __rv_build_with_errors ${*}
 }
 
