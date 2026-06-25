@@ -88,16 +88,50 @@ cd OpenStudioLandscapes-ASWF-OpenRV
 > 
 > Prevent Docker Log Clipping for this build
 > - i.e. [output clipped, log limit 2MiB reached]
+> 
+> Apparently, we run into other issues when using
+> a custom builder complaining about the self signed
+> CA certificate:
+> ```
+> #2 [internal] load metadata for registry.openstudiolandscapes.lan:5000/openrv/openstudiolandscapes-aswf-openrv-rocky9-cy2024-openrv_base:latest
+> #2 ERROR: failed to do request: Head "https://registry.openstudiolandscapes.lan:5000/v2/openrv/openstudiolandscapes-aswf-openrv-rocky9-cy2024-openrv_base/manifests/latest": tls: failed to verify certificate: x509: certificate signed by unknown authority
+> ------
+>  > [internal] load metadata for registry.openstudiolandscapes.lan:5000/openrv/openstudiolandscapes-aswf-openrv-rocky9-cy2024-openrv_base:latest:
+> ------
+> Dockerfile.Linux-Rocky9-CY2024:159
+> --------------------
+>  157 |     
+>  158 |     # Stage 2
+>  159 | >>> FROM registry.openstudiolandscapes.lan:5000/openrv/openstudiolandscapes-aswf-openrv-rocky9-cy2024-openrv_base:latest AS rv_build
+>  160 |     
+>  161 |     USER rv
+> --------------------
+> ERROR: failed to build: failed to solve: registry.openstudiolandscapes.lan:5000/openrv/openstudiolandscapes-aswf-openrv-rocky9-cy2024-openrv_base:latest: failed to resolve source metadata for registry.openstudiolandscapes.lan:5000/openrv/openstudiolandscapes-aswf-openrv-rocky9-cy2024-openrv_base:latest: failed to do request: Head "https://registry.openstudiolandscapes.lan:5000/v2/openrv/openstudiolandscapes-aswf-openrv-rocky9-cy2024-openrv_base/manifests/latest": tls: failed to verify certificate: x509: certificate signed by unknown authority
+> ```
+> 
+> Let's try this:
+> - https://stackoverflow.com/a/71845726/2207196
 
 `buildx`
 - https://github.com/docker/buildx/issues/484#issuecomment-3299100959
 - https://oneuptime.com/blog/post/2026-02-08-how-to-use-docker-buildx-commands-for-advanced-builds/view
 - https://docs.docker.com/build/builders/drivers/
 
+List current builders:
+
+```shell
+docker \
+    --debug \
+    --config /home/michael/.local/share/OpenStudioLandscapes/.landscapes/2026-06-25_08-51-54__healthy-showy-muddled-building/OpenStudioLandscapes/OpenStudioLandscapes_Base__docker_config_json \
+    builder ls
+```
 
 ```shell
 # https://docs.docker.com/build/builders/drivers/docker-container/
-docker buildx \
+docker \
+    --debug \
+    --config /home/michael/.local/share/OpenStudioLandscapes/.landscapes/2026-06-25_08-51-54__healthy-showy-muddled-building/OpenStudioLandscapes/OpenStudioLandscapes_Base__docker_config_json \
+    buildx \
     create \
     --name openrv_builder \
     --driver docker-container \
@@ -110,7 +144,12 @@ docker buildx \
 > 
 > Don't remove custom builder if cache is needed
 > - https://docs.docker.com/build/cache/backends/local/
-> `docker buildx rm openrv_builder`
+> ```shell
+> docker \
+>     --debug \
+>     --config /home/michael/.local/share/OpenStudioLandscapes/.landscapes/2026-06-25_08-51-54__healthy-showy-muddled-building/OpenStudioLandscapes/OpenStudioLandscapes_Base__docker_config_json \
+>     buildx rm openrv_builder
+> ```
 > or remove it with [`--keep-state`](https://docs.docker.com/build/builders/drivers/docker-container/#cache-persistence)
 
 #### Build to Target
@@ -169,6 +208,76 @@ flowchart TB
     build_system_image -. "COPY --from/home/rv/OpenRV/_install" .-> installable_on_rocky
 ```
 
+##### `openrv_base`
+
+> [!TIP]
+> 
+> This is the base OS that will be 
+> used as both the Docker as well
+> as the Apptainer deployments.
+
+```shell
+# stage
+export TARGET="openrv_base"
+
+LOGS=./dockerfiles/.logs
+mkdir -p ${LOGS}
+
+# ls && la && whoami || pwd && ls -alh
+# https://www.funwithlinux.net/blog/setting-environment-variables-for-multiple-commands-in-bash-one-liner/
+
+# while fail, retry
+# - https://stackoverflow.com/a/12967264/2207196
+# while ! i_can_fail; do :; done
+
+DOCKERFILE="Dockerfile.Linux-Rocky9-CY2024" \
+TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S") \
+NTFY_RSNAPSHOT_TOKEN=tk_amlipjwa7eb3rpxd00rsdshz5vyh5 \
+    && /usr/bin/curl \
+        -H "X-Title: OpenRV" \
+        -H "Authorization: Bearer ${NTFY_RSNAPSHOT_TOKEN}" \
+        -d "Build to target ${TARGET} started..." https://ntfy.pangolin.openstudiolandscapes.cloud-ip.cc/builds \
+    && time docker \
+        --debug \
+        --config /home/michael/.local/share/OpenStudioLandscapes/.landscapes/2026-06-25_08-51-54__healthy-showy-muddled-building/OpenStudioLandscapes/OpenStudioLandscapes_Base__docker_config_json \
+        build \
+        --builder openrv_builder \
+        --load \
+        --pull \
+        --target ${TARGET} \
+        --output type=docker \
+        --progress plain \
+        --shm-size=32g \
+        --tag registry.openstudiolandscapes.lan:5000/openrv/openstudiolandscapes-aswf-openrv-rocky9-cy2024-${TARGET}:${TIMESTAMP} \
+        --tag registry.openstudiolandscapes.lan:5000/openrv/openstudiolandscapes-aswf-openrv-rocky9-cy2024-${TARGET}:latest \
+        --file dockerfiles/${DOCKERFILE} \
+        ./dockerfiles \
+        > >(tee -a ${LOGS}/${DOCKERFILE}.${TARGET}.${TIMESTAMP}.STDOUT.log) \
+        2> >(tee -a ${LOGS}/${DOCKERFILE}.${TARGET}.${TIMESTAMP}.STDERR.log >&2) \
+    && /usr/bin/curl \
+        -H "X-Title: OpenRV" \
+        -H "Authorization: Bearer ${NTFY_RSNAPSHOT_TOKEN}" \
+        -d "Build to target ${TARGET} finished." https://ntfy.pangolin.openstudiolandscapes.cloud-ip.cc/builds \
+    || /usr/bin/curl \
+        -H "X-Title: OpenRV" \
+        -H "Authorization: Bearer ${NTFY_RSNAPSHOT_TOKEN}" \
+        -d "Build to target ${TARGET} failed." https://ntfy.pangolin.openstudiolandscapes.cloud-ip.cc/builds \
+    && /usr/bin/curl \
+        -H "X-Title: OpenRV" \
+        -H "Authorization: Bearer ${NTFY_RSNAPSHOT_TOKEN}" \
+        -d "Pushing image to repository..." https://ntfy.pangolin.openstudiolandscapes.cloud-ip.cc/builds \
+    && time docker \
+        --debug \
+        --config /home/michael/.local/share/OpenStudioLandscapes/.landscapes/2026-06-25_08-51-54__healthy-showy-muddled-building/OpenStudioLandscapes/OpenStudioLandscapes_Base__docker_config_json \
+        push \
+        --all-tags \
+        registry.openstudiolandscapes.lan:5000/openrv/openstudiolandscapes-aswf-openrv-rocky9-cy2024-${TARGET} \
+    && /usr/bin/curl \
+        -H "X-Title: OpenRV" \
+        -H "Authorization: Bearer ${NTFY_RSNAPSHOT_TOKEN}" \
+        -d "Image pushed." https://ntfy.pangolin.openstudiolandscapes.cloud-ip.cc/builds
+```
+
 ##### `rv_build`
 
 > [!TIP]
@@ -205,9 +314,12 @@ NTFY_RSNAPSHOT_TOKEN=tk_amlipjwa7eb3rpxd00rsdshz5vyh5 \
         -H "X-Title: OpenRV" \
         -H "Authorization: Bearer ${NTFY_RSNAPSHOT_TOKEN}" \
         -d "Build to target ${TARGET} started..." https://ntfy.pangolin.openstudiolandscapes.cloud-ip.cc/builds \
-    && time docker build \
-        --builder openrv_builder \
-        --load \
+    && time docker \
+        --debug \
+        --config /home/michael/.local/share/OpenStudioLandscapes/.landscapes/2026-06-25_08-51-54__healthy-showy-muddled-building/OpenStudioLandscapes/OpenStudioLandscapes_Base__docker_config_json \
+        build \
+        --no-cache \
+        --pull \
         --target ${TARGET} \
         --output type=docker \
         --progress plain \
@@ -347,8 +459,9 @@ NTFY_RSNAPSHOT_TOKEN=tk_amlipjwa7eb3rpxd00rsdshz5vyh5 \
 >     --rm \
 >     --interactive \
 >     --tty \
+>     --entrypoint /bin/bash \
 >     --name OpenStudioLandscapes-ASWF-OpenRV-BuildBox-CY2024-${TARGET} \
->     openstudiolandscapes-aswf-openrv-rocky9-cy2024-${TARGET}:latest /bin/bash
+>     openstudiolandscapes-aswf-openrv-rocky9-cy2024-${TARGET}:latest
 > ```
 
 
