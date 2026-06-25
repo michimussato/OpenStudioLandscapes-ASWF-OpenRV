@@ -439,7 +439,7 @@ function rvcfg() {
 function rvbuildt() {
   # alias rvbuildt='rvenv && __rv_build_with_errors'
   rvenv
-  __rv_build_with_errors
+  __rv_build_with_errors ${*}
 }
 
 function rvbuild() {
