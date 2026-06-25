@@ -419,81 +419,107 @@ __rv_build_with_errors() {
 # alias rvhomedir='cd ${RV_HOME}'
 
 function rvenv() {
+  echo "Starting rvenv..."
   # alias rvenv='rvhomedir && __rv_env_shell'
   cd ${RV_HOME}
   __rv_env_shell
+  echo "rvenv done."
 }
 
 function rvsetup() {
+  echo "Starting rvsetup..."
   # alias rvsetup='rvenv && SETUPTOOLS_USE_DISTUTILS=${SETUPTOOLS_USE_DISTUTILS} python3 -m pip install --upgrade -r ${RV_HOME}/requirements.txt'
   rvenv
   SETUPTOOLS_USE_DISTUTILS=${SETUPTOOLS_USE_DISTUTILS} python3 -m pip install --upgrade -r ${RV_HOME}/requirements.txt
+  echo "rvsetup done."
 }
 
 function rvcfg() {
+  echo "Starting rvcfg..."
   # alias rvcfg='rvhomedir && rvenv && cmake -B ${RV_BUILD_DIR} -G "${CMAKE_GENERATOR}" ${RV_TOOLCHAIN} ${CMAKE_WIN_ARCH} -DCMAKE_BUILD_TYPE=${RV_BUILD_TYPE} -DRV_DEPS_QT_LOCATION=${QT_HOME} -DRV_VFX_PLATFORM=${RV_VFX_PLATFORM} -DRV_DEPS_WIN_PERL_ROOT=${WIN_PERL}'
   rvenv
   cmake -B ${RV_BUILD_DIR} -G "${CMAKE_GENERATOR}" ${RV_TOOLCHAIN} ${CMAKE_WIN_ARCH} -DCMAKE_BUILD_TYPE=${RV_BUILD_TYPE} -DRV_DEPS_QT_LOCATION=${QT_HOME} -DRV_VFX_PLATFORM=${RV_VFX_PLATFORM} -DRV_DEPS_WIN_PERL_ROOT=${WIN_PERL}
+  echo "rvcfg done."
 }
 
 function rvbuildt() {
+  echo "Starting rvbuildt..."
   # alias rvbuildt='rvenv && __rv_build_with_errors'
   rvenv
   echo "RVBUILDT_ARGS"
   echo "${*}"
   __rv_build_with_errors ${*}
+  echo "rvbuildt done."
 }
 
 function rvbuild() {
+  echo "Starting rvbuild..."
   # alias rvbuild='rvenv && rvbuildt main_executable'
   rvenv
   rvbuildt main_executable
+  echo "rvbuild done."
 }
 
 function rvtest() {
+  echo "Starting rvtest..."
   # alias rvtest='rvenv && ctest --test-dir ${RV_BUILD_DIR} --extra-verbose'
   rvenv
   ctest --test-dir ${RV_BUILD_DIR} --extra-verbose
+  echo "rvtest done."
 }
 
 function rvinst() {
+  echo "Starting rvinst..."
   # alias rvinst='rvenv && cmake --install ${RV_BUILD_DIR} --prefix ${RV_INST_DIR} --config ${RV_BUILD_TYPE}'
   rvenv
   cmake --install ${RV_BUILD_DIR} --prefix ${RV_INST_DIR} --config ${RV_BUILD_TYPE}
+  echo "rvinst done."
 }
 
 function rvclean() {
+  echo "Starting rvclean..."
   # alias rvclean='rvhomedir && __rv_clean_build'
   cd ${RV_HOME}
   __rv_clean_build
+  echo "rvclean done."
 }
 
 function rvmk() {
+  echo "Starting rvmk..."
   # alias rvmk='rvcfg && rvbuild'
   rvcfg
   rvbuild
+  echo "rvmk done."
 }
 
 function rvbootstrap() {
+  echo "Starting rvbootstrap..."
   # alias rvbootstrap='rvsetup && rvmk'
   rvsetup
   rvmk
+  echo "rvbootstrap done."
 }
 
 function rvrun() {
+  echo "Starting rvrun..."
   # alias rvrun='rvappdir && ./rv'
   cd ${RV_APP_DIR}
   ./rv
+  echo "rvrun done."
 }
 
 function rverrors() {
+  echo "Starting rverrors..."
   # alias rverrors='less ${RV_BUILD_DIR}/build_errors.log'
   less ${RV_BUILD_DIR}/build_errors.log
+  echo "rverrors done."
 }
 
 function rverrsummary() {
+  echo "Starting rverrsummary..."
   # alias rverrsummary='cat ${RV_BUILD_DIR}/error_summary.txt 2>/dev/null || echo "No error summary found. Build may have succeeded or not run yet."'
   cat ${RV_BUILD_DIR}/error_summary.txt 2>/dev/null || echo "No error summary found. Build may have succeeded or not run yet."
+  echo "rverrsummary done."
 }
 
 __rv_update_paths
