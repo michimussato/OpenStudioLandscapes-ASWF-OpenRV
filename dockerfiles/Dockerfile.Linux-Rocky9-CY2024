@@ -4,10 +4,27 @@ LABEL maintainer="michimussato@etik.com"
 
 SHELL ["/bin/bash", "-c"]
 
-ENV WORKDIR="/home/rv"
+# Works with
+# user `rv` (after `# Install CMake` step):
+#   ENV WORKDIR="/home/rv"
+#   Create and run as user rv:rv
+#   RUN groupadd --gid 1001 rv
+#   RUN useradd --uid 1001 --gid 1001 --create-home --home-dir ${WORKDIR} --shell /bin/bash rv
+#   WORKDIR ${WORKDIR}
+#   USER rv
+# user `root`:
+#   ENV WORKDIR="/root"
+#   USER root
+#   WORKDIR ${WORKDIR}
+#
+#   ENV WORKDIR="/rv/build"
+#   USER root
+#   WORKDIR ${WORKDIR}
+ENV WORKDIR="/rv/build"
+USER root
+WORKDIR ${WORKDIR}
 
 # static versions:
-ENV CMAKE_VERSION="3.31.6"
 ENV NINJA_VERSION="1.12.1"
 
 # ─────────────────────────────────────────────
@@ -99,18 +116,38 @@ RUN dnf groupinstall "Development Tools" -y \
 RUN dnf config-manager --set-disabled devel
 
 # Install CMake
-ENV PATH="/usr/local/bin:${PATH}"
-RUN curl -L https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}-linux-x86_64.sh -o cmake.sh && \
-    sh cmake.sh --prefix=/usr/local/ --skip-license && \
-    rm -rf cmake.sh
+# Todo
+#  - [x] move to /opt/cmake
+# https://cmake.org/cmake/help/latest/manual/cmake-variables.7.html
+ENV CMAKE_VERSION="3.31.6"
+ENV CMAKE_BASE="/opt/cmake"
+RUN mkdir -p ${CMAKE_BASE}
+ENV PATH="${CMAKE_BASE}/bin:${PATH}"
+# ENV CMAKE_HOME="${CMAKE_BASE}/cmake-$(echo $CMAKE_VERSION | cut -d. -f1,2)"
+#RUN curl \
+#        -L https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}-linux-x86_64.tar.gz \
+#        -o cmake-${CMAKE_VERSION}-linux-x86_64.tar.gz \
+#    && tar --strip-components=1 -xzvf cmake-${CMAKE_VERSION}-linux-x86_64.tar.gz \
+#        -C ${CMAKE_BASE} cmake-${CMAKE_VERSION}-linux-x86_64 \
+#    && rm -rf cmake-${CMAKE_VERSION}-linux-x86_64.tar.gz
+RUN curl \
+        -L https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}.tar.gz \
+        -o cmake-${CMAKE_VERSION}.tar.gz \
+    && tar -xzvf cmake-${CMAKE_VERSION}.tar.gz \
+    && pushd cmake-${CMAKE_VERSION} \
+    && ./configure --prefix=${CMAKE_BASE} \
+    && make \
+    && make install \
+    && popd \
+    && rm -rf cmake-${CMAKE_VERSION}*
 
 ## Create and run as user rv
 #RUN useradd --uid 1001 --create-home --home-dir ${WORKDIR} --shell /bin/bash rv
 # Create and run as user rv:rv
-RUN groupadd --gid 1001 rv
-RUN useradd --uid 1001 --gid 1001 --create-home --home-dir ${WORKDIR} --shell /bin/bash rv
-WORKDIR ${WORKDIR}
-USER rv
+#RUN groupadd --gid 1001 rv
+#RUN useradd --uid 1001 --gid 1001 --create-home --home-dir ${WORKDIR} --shell /bin/bash rv
+#WORKDIR ${WORKDIR}
+#USER rv
 
 # Install Rust (>=1.92)
 # - https://aswf-openrv.readthedocs.io/en/latest/build_system/config_macos.html#install-tools-and-build-dependencies
@@ -182,21 +219,39 @@ USER rv
 #
 #
 # instead of `source "$HOME/.cargo/env"`
-ENV PATH="${WORKDIR}/.cargo/bin:${PATH}"
+# https://rust-lang.github.io/rustup/environment-variables.html
+# https://github.com/rust-lang/rustup/issues/1085#issuecomment-296604244
+# ENV PATH="${HOME}/.cargo/bin:${PATH}"
+ENV RUSTUP_HOME="/opt/rust"
+RUN mkdir -p ${RUSTUP_HOME}
+ENV CARGO_HOME="/opt/rust"
+RUN mkdir -p ${CARGO_HOME}
+ENV PATH="${RUSTUP_HOME}/bin:${CARGO_HOME}/bin:${PATH}"
 #ENV PATH="${WORKDIR}/.local/bin:${PATH}"
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path
 
 # Install Ninja
-ENV PATH="${WORKDIR}/ninja:${PATH}"
-RUN wget https://github.com/ninja-build/ninja/releases/download/v${NINJA_VERSION}/ninja-linux.zip && \
-    unzip ninja-linux.zip -d ./ninja
+# Todo
+#  - [x] move to /opt/ninja
+ENV NINJA_HOME="/opt/ninja"
+RUN mkdir -p ${NINJA_HOME}
+ENV PATH="${NINJA_HOME}:${PATH}"
+RUN curl \
+        -L https://github.com/ninja-build/ninja/releases/download/v${NINJA_VERSION}/ninja-linux.zip \
+        -o ninja-linux.zip \
+    && unzip ninja-linux.zip -d "${NINJA_HOME}" \
+    && rm ninja-linux.zip
 
 # Install pyenv
+# Is this a problem with user `root`?
+# [openrv_base 11/16] RUN echo 'eval "$(pyenv init -)"' >> ~/.bashrc
+# Todo
+#  - [x] move to /opt/pyenv
 ENV PIP_ROOT_USER_ACTION=ignore
-ENV PYENV_ROOT="${WORKDIR}/.pyenv"
+ENV PYENV_ROOT="/opt/pyenv"
 ENV PATH="${PYENV_ROOT}/shims:${PYENV_ROOT}/bin:${PATH}"
-RUN git clone http://github.com/pyenv/pyenv.git ${WORKDIR}/.pyenv
-RUN echo 'eval "$(pyenv init -)"' >> ~/.bashrc
+RUN git clone http://github.com/pyenv/pyenv.git ${PYENV_ROOT}
+RUN echo 'eval "$(pyenv init -)"' >> /etc/bash.bashrc
 
 # Python environment
 RUN pyenv install ${PYTHON_VERSION}
@@ -208,8 +263,12 @@ RUN python -m pip install aqtinstall
 
 # Install Qt
 # This does not seem to cache
+# Todo
+#  - [x] move to /opt/Qt
+ENV QT_BASE="/opt/Qt"
+ENV QT_HOME="${QT_BASE}/${QT_VERSION}/gcc_64"
 ENV QT_QPA_PLATFORM="offscreen"
-RUN python -m aqt install-qt linux desktop ${QT_VERSION} gcc_64 -O ~/Qt \
+RUN python -m aqt install-qt linux desktop ${QT_VERSION} gcc_64 -O ${QT_BASE} \
     -m ${QT_MODULES} \
     --archives ${QT_ARCHIVES}
 
@@ -281,7 +340,7 @@ RUN git clone --recursive https://github.com/michimussato/OpenStudioLandscapes-A
 
 #     && rvbuild || rvbuild \
 
-CMD ["/bin/bash"]
+#CMD ["/bin/bash"]
 
 
 # Multi step:
@@ -290,6 +349,23 @@ FROM registry.openstudiolandscapes.lan:5000/openrv/openstudiolandscapes-aswf-ope
 # #6 3.220   Failed to install pre-commit hooks.
 # rvcfg with non_free:
 # - `rvcfg -DRV_FFMPEG_NON_FREE_DECODERS_TO_ENABLE="aac\;hevc" -DRV_FFMPEG_NON_FREE_ENCODERS_TO_ENABLE="aac"`
+
+# #6 8.903 CMake Error at cmake/dependencies/qt6.cmake:142 (FIND_PACKAGE):
+# #6 8.903   By not providing "FindQt6.cmake" in CMAKE_MODULE_PATH this project has
+# #6 8.903   asked CMake to find a package configuration file provided by "Qt6", but
+# #6 8.903   CMake did not find one.
+# #6 8.903
+# #6 8.903   Could not find a package configuration file provided by "Qt6" with any of
+# #6 8.903   the following names:
+# #6 8.903
+# #6 8.903     Qt6Config.cmake
+# #6 8.903     qt6-config.cmake
+# #6 8.903
+# #6 8.903   Add the installation prefix of "Qt6" to CMAKE_PREFIX_PATH or set "Qt6_DIR"
+# #6 8.903   to a directory containing one of the above files.  If "Qt6" provides a
+# #6 8.903   separate development package or SDK, be sure it has been installed.
+ENV Qt6_DIR="${QT_HOME}/lib/cmake/Qt6"
+
 RUN source rvcmds.sh \
     && rvsetup \
     && rvcfg
@@ -318,39 +394,39 @@ RUN source rvcmds.sh \
 
 # BUILD TARGETS
 
-FROM openrv_base AS rv_os_runtime
-
-#ENV QT_QPA_PLATFORM=xcb
-ENV QT_QPA_PLATFORM="offscreen"
-
-# Search for package that provides `libsmime3.so`:
-# `dnf provides */libsmime3.so\*`
-# Base dependencies to run OpenRV
-RUN dnf install -y \
-    alsa-lib \
-    pulseaudio-libs \
-    libXcomposite \
-    libxkbcommon \
-    libXcursor \
-    libXcursor-devel \
-    xcb-util-cursor \
-    libXdamage \
-    libXrandr \
-    dbus-libs \
-    libXrender \
-    libXtst \
-    libxkbfile \
-    mesa-libGLU \
-    freetype \
-    libglvnd-opengl \
-    libglvnd-egl \
-    fontconfig \
-    libaio \
-    nss \
-    tcsh \
-    && dnf clean all
-
-CMD ["/bin/bash"]
+# FROM openrv_base AS rv_os_runtime
+#
+# #ENV QT_QPA_PLATFORM=xcb
+# ENV QT_QPA_PLATFORM="offscreen"
+#
+# # Search for package that provides `libsmime3.so`:
+# # `dnf provides */libsmime3.so\*`
+# # Base dependencies to run OpenRV
+# RUN dnf install -y \
+#     alsa-lib \
+#     pulseaudio-libs \
+#     libXcomposite \
+#     libxkbcommon \
+#     libXcursor \
+#     libXcursor-devel \
+#     xcb-util-cursor \
+#     libXdamage \
+#     libXrandr \
+#     dbus-libs \
+#     libXrender \
+#     libXtst \
+#     libxkbfile \
+#     mesa-libGLU \
+#     freetype \
+#     libglvnd-opengl \
+#     libglvnd-egl \
+#     fontconfig \
+#     libaio \
+#     nss \
+#     tcsh \
+#     && dnf clean all
+#
+# CMD ["/bin/bash"]
 
 
 
@@ -437,17 +513,17 @@ CMD ["/bin/bash"]
 # CMD ["/bin/bash"]
 
 
-FROM rv_os_runtime AS rv_rocky
-
-#COPY --from=openstudiolandscapes-aswf-openrv-rocky9-cy2024-rv_build:latest "${WORKDIR}/OpenRV/_install" "/opt/rv"
-COPY --from=rv_build  "${WORKDIR}/OpenRV/_install" "/opt/rv"
-#COPY --from=build_system "${WORKDIR}/OpenRV/_install" "/opt/rv"
-#COPY --from=build ${RV_INST_DIR} .
-
-ENV PATH="/opt/rv/bin:${PATH}"
-
-# [1:1:0624/152842.627912:ERROR:zygote_host_impl_linux.cc(100)] Running as root without --no-sandbox is not supported. See https://crbug.com/638180.
-USER rv
-
-ENTRYPOINT ["/opt/rv/bin/rv"]
-# CMD ["/opt/bin/rv"]
+# FROM rv_os_runtime AS rv_rocky
+#
+# #COPY --from=openstudiolandscapes-aswf-openrv-rocky9-cy2024-rv_build:latest "${WORKDIR}/OpenRV/_install" "/opt/rv"
+# COPY --from=rv_build  "${WORKDIR}/OpenRV/_install" "/opt/rv"
+# #COPY --from=build_system "${WORKDIR}/OpenRV/_install" "/opt/rv"
+# #COPY --from=build ${RV_INST_DIR} .
+#
+# ENV PATH="/opt/rv/bin:${PATH}"
+#
+# # [1:1:0624/152842.627912:ERROR:zygote_host_impl_linux.cc(100)] Running as root without --no-sandbox is not supported. See https://crbug.com/638180.
+# USER rv
+#
+# ENTRYPOINT ["/opt/rv/bin/rv"]
+# # CMD ["/opt/bin/rv"]
