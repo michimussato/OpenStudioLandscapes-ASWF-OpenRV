@@ -381,7 +381,7 @@ RUN source rvcmds.sh \
     && rvbuildt main_executable  # or `rvbuild`
 
 FROM registry.openstudiolandscapes.lan:5000/openrv/openstudiolandscapes-aswf-openrv-rocky9-cy2024-rv_build:latest AS rv_install
-# 4. Build OpenRV
+# 4. Install OpenRV
 RUN source rvcmds.sh \
     && rvinst
 

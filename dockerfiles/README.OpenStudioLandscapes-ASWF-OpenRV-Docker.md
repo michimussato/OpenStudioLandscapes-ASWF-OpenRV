@@ -9,6 +9,7 @@
     * [Dockerfile.Linux-Rocky9-CY2024](#dockerfilelinux-rocky9-cy2024)
       * [Disable Log Clipping](#disable-log-clipping)
       * [Build to Target](#build-to-target)
+      * [Run a Target](#run-a-target)
         * [`openrv_base`](#openrv_base)
         * [`rv_clone`](#rv_clone)
         * [`rv_configure`](#rv_configure)
@@ -245,23 +246,31 @@ flowchart TB
     build_system_image -. "COPY --from/home/rv/OpenRV/_install" .-> installable_on_rocky
 ```
 
-> [!TIP]
-> 
-> To enter a build target interactively:
-> ```shell
-> export TARGET="<build_target>"
-> 
-> docker \
->     --debug \
->     --config /home/michael/.local/share/OpenStudioLandscapes/.landscapes/2026-06-25_08-51-54__healthy-showy-muddled-building/OpenStudioLandscapes/OpenStudioLandscapes_Base__docker_config_json \
->     run \
->     --shm-size=32g \
->     --rm \
->     --interactive \
->     --tty \
->     --name OpenStudioLandscapes-ASWF-OpenRV-BuildBox-CY2024-${TARGET} \
->     registry.openstudiolandscapes.lan:5000/openrv/openstudiolandscapes-aswf-openrv-rocky9-cy2024-${TARGET}:latest /bin/bash
-> ```
+#### Run a Target
+
+Targets:
+- `openrv_base`
+- `rv_clone`
+- `rv_configure`
+- `rv_dependencies`
+- `rv_build`
+- `rv_install`
+
+To enter a build target interactively:
+```shell
+export TARGET="<build_target>"
+
+docker \
+    --debug \
+    --config /home/michael/.local/share/OpenStudioLandscapes/.landscapes/2026-06-25_08-51-54__healthy-showy-muddled-building/OpenStudioLandscapes/OpenStudioLandscapes_Base__docker_config_json \
+    run \
+    --shm-size=32g \
+    --rm \
+    --interactive \
+    --tty \
+    --name OpenStudioLandscapes-ASWF-OpenRV-BuildBox-CY2024-${TARGET} \
+    registry.openstudiolandscapes.lan:5000/openrv/openstudiolandscapes-aswf-openrv-rocky9-cy2024-${TARGET}:latest /bin/bash
+```
 
 ##### `openrv_base`
 
@@ -273,9 +282,9 @@ flowchart TB
 
 ```shell
 export TARGET="openrv_base"
-DISABLE_BUILD_CACHE=true
+DISABLE_BUILD_CACHE=False
 
-LOGS=./dockerfiles/.logs
+LOGS=./.logs
 mkdir -p ${LOGS}
 
 DOCKERFILE="Dockerfile.Linux-Rocky9-CY2024" \
@@ -292,26 +301,21 @@ NTFY_RSNAPSHOT_TOKEN=tk_amlipjwa7eb3rpxd00rsdshz5vyh5 \
         --no-cache=${DISABLE_BUILD_CACHE} \
         --pull \
         --target ${TARGET} \
-        --output type=docker \
         --progress plain \
         --shm-size=32g \
         --tag registry.openstudiolandscapes.lan:5000/openrv/openstudiolandscapes-aswf-openrv-rocky9-cy2024-${TARGET}:${TIMESTAMP} \
         --tag registry.openstudiolandscapes.lan:5000/openrv/openstudiolandscapes-aswf-openrv-rocky9-cy2024-${TARGET}:latest \
-        --file dockerfiles/${DOCKERFILE} \
-        ./dockerfiles \
-        2>&1 | tee -a ${LOGS}/${DOCKERFILE}.${TARGET}.${TIMESTAMP}.log \
+        --file ./${DOCKERFILE} \
+        . \
+        &> >(tee -a ${LOGS}/${DOCKERFILE}.${TARGET}.${TIMESTAMP}.log) \
     && /usr/bin/curl \
         -H "X-Title: OpenRV" \
         -H "Authorization: Bearer ${NTFY_RSNAPSHOT_TOKEN}" \
         -d "Build to target ${TARGET} finished." https://ntfy.pangolin.openstudiolandscapes.cloud-ip.cc/builds \
-    || /usr/bin/curl \
-        -H "X-Title: OpenRV" \
-        -H "Authorization: Bearer ${NTFY_RSNAPSHOT_TOKEN}" \
-        -d "Build to target ${TARGET} failed." https://ntfy.pangolin.openstudiolandscapes.cloud-ip.cc/builds \
     && /usr/bin/curl \
         -H "X-Title: OpenRV" \
         -H "Authorization: Bearer ${NTFY_RSNAPSHOT_TOKEN}" \
-        -d "Pushing image to repository..." https://ntfy.pangolin.openstudiolandscapes.cloud-ip.cc/builds \
+        -d "Pushing ${TARGET} image to repository..." https://ntfy.pangolin.openstudiolandscapes.cloud-ip.cc/builds \
     && time docker \
         --debug \
         --config /home/michael/.local/share/OpenStudioLandscapes/.landscapes/2026-06-25_08-51-54__healthy-showy-muddled-building/OpenStudioLandscapes/OpenStudioLandscapes_Base__docker_config_json \
@@ -321,16 +325,20 @@ NTFY_RSNAPSHOT_TOKEN=tk_amlipjwa7eb3rpxd00rsdshz5vyh5 \
     && /usr/bin/curl \
         -H "X-Title: OpenRV" \
         -H "Authorization: Bearer ${NTFY_RSNAPSHOT_TOKEN}" \
-        -d "Image pushed." https://ntfy.pangolin.openstudiolandscapes.cloud-ip.cc/builds
+        -d "${TARGET} image pushed." https://ntfy.pangolin.openstudiolandscapes.cloud-ip.cc/builds \
+    || /usr/bin/curl \
+        -H "X-Title: OpenRV" \
+        -H "Authorization: Bearer ${NTFY_RSNAPSHOT_TOKEN}" \
+        -d "Build to target ${TARGET} failed." https://ntfy.pangolin.openstudiolandscapes.cloud-ip.cc/builds
 ```
 
 ##### `rv_clone`
 
 ```shell
 export TARGET="rv_clone"
-DISABLE_BUILD_CACHE=true
+DISABLE_BUILD_CACHE=False
 
-LOGS=./dockerfiles/.logs
+LOGS=./.logs
 mkdir -p ${LOGS}
 
 DOCKERFILE="Dockerfile.Linux-Rocky9-CY2024" \
@@ -347,26 +355,21 @@ NTFY_RSNAPSHOT_TOKEN=tk_amlipjwa7eb3rpxd00rsdshz5vyh5 \
         --no-cache=${DISABLE_BUILD_CACHE} \
         --pull \
         --target ${TARGET} \
-        --output type=docker \
         --progress plain \
         --shm-size=32g \
         --tag registry.openstudiolandscapes.lan:5000/openrv/openstudiolandscapes-aswf-openrv-rocky9-cy2024-${TARGET}:${TIMESTAMP} \
         --tag registry.openstudiolandscapes.lan:5000/openrv/openstudiolandscapes-aswf-openrv-rocky9-cy2024-${TARGET}:latest \
-        --file dockerfiles/${DOCKERFILE} \
-        ./dockerfiles \
-        2>&1 | tee -a ${LOGS}/${DOCKERFILE}.${TARGET}.${TIMESTAMP}.log \
+        --file ./${DOCKERFILE} \
+        . \
+        &> >(tee -a ${LOGS}/${DOCKERFILE}.${TARGET}.${TIMESTAMP}.log) \
     && /usr/bin/curl \
         -H "X-Title: OpenRV" \
         -H "Authorization: Bearer ${NTFY_RSNAPSHOT_TOKEN}" \
         -d "Build to target ${TARGET} finished." https://ntfy.pangolin.openstudiolandscapes.cloud-ip.cc/builds \
-    || /usr/bin/curl \
-        -H "X-Title: OpenRV" \
-        -H "Authorization: Bearer ${NTFY_RSNAPSHOT_TOKEN}" \
-        -d "Build to target ${TARGET} failed." https://ntfy.pangolin.openstudiolandscapes.cloud-ip.cc/builds \
     && /usr/bin/curl \
         -H "X-Title: OpenRV" \
         -H "Authorization: Bearer ${NTFY_RSNAPSHOT_TOKEN}" \
-        -d "Pushing image to repository..." https://ntfy.pangolin.openstudiolandscapes.cloud-ip.cc/builds \
+        -d "Pushing ${TARGET} image to repository..." https://ntfy.pangolin.openstudiolandscapes.cloud-ip.cc/builds \
     && time docker \
         --debug \
         --config /home/michael/.local/share/OpenStudioLandscapes/.landscapes/2026-06-25_08-51-54__healthy-showy-muddled-building/OpenStudioLandscapes/OpenStudioLandscapes_Base__docker_config_json \
@@ -376,16 +379,20 @@ NTFY_RSNAPSHOT_TOKEN=tk_amlipjwa7eb3rpxd00rsdshz5vyh5 \
     && /usr/bin/curl \
         -H "X-Title: OpenRV" \
         -H "Authorization: Bearer ${NTFY_RSNAPSHOT_TOKEN}" \
-        -d "Image pushed." https://ntfy.pangolin.openstudiolandscapes.cloud-ip.cc/builds
+        -d "${TARGET} image pushed." https://ntfy.pangolin.openstudiolandscapes.cloud-ip.cc/builds \
+    || /usr/bin/curl \
+        -H "X-Title: OpenRV" \
+        -H "Authorization: Bearer ${NTFY_RSNAPSHOT_TOKEN}" \
+        -d "Build to target ${TARGET} failed." https://ntfy.pangolin.openstudiolandscapes.cloud-ip.cc/builds
 ```
 
 ##### `rv_configure`
 
 ```shell
 export TARGET="rv_configure"
-DISABLE_BUILD_CACHE=true
+DISABLE_BUILD_CACHE=True
 
-LOGS=./dockerfiles/.logs
+LOGS=./.logs
 mkdir -p ${LOGS}
 
 DOCKERFILE="Dockerfile.Linux-Rocky9-CY2024" \
@@ -402,26 +409,21 @@ NTFY_RSNAPSHOT_TOKEN=tk_amlipjwa7eb3rpxd00rsdshz5vyh5 \
         --no-cache=${DISABLE_BUILD_CACHE} \
         --pull \
         --target ${TARGET} \
-        --output type=docker \
         --progress plain \
         --shm-size=32g \
         --tag registry.openstudiolandscapes.lan:5000/openrv/openstudiolandscapes-aswf-openrv-rocky9-cy2024-${TARGET}:${TIMESTAMP} \
         --tag registry.openstudiolandscapes.lan:5000/openrv/openstudiolandscapes-aswf-openrv-rocky9-cy2024-${TARGET}:latest \
-        --file dockerfiles/${DOCKERFILE} \
-        ./dockerfiles \
-        2>&1 | tee -a ${LOGS}/${DOCKERFILE}.${TARGET}.${TIMESTAMP}.log \
+        --file ./${DOCKERFILE} \
+        . \
+        &> >(tee -a ${LOGS}/${DOCKERFILE}.${TARGET}.${TIMESTAMP}.log) \
     && /usr/bin/curl \
         -H "X-Title: OpenRV" \
         -H "Authorization: Bearer ${NTFY_RSNAPSHOT_TOKEN}" \
         -d "Build to target ${TARGET} finished." https://ntfy.pangolin.openstudiolandscapes.cloud-ip.cc/builds \
-    || /usr/bin/curl \
-        -H "X-Title: OpenRV" \
-        -H "Authorization: Bearer ${NTFY_RSNAPSHOT_TOKEN}" \
-        -d "Build to target ${TARGET} failed." https://ntfy.pangolin.openstudiolandscapes.cloud-ip.cc/builds \
     && /usr/bin/curl \
         -H "X-Title: OpenRV" \
         -H "Authorization: Bearer ${NTFY_RSNAPSHOT_TOKEN}" \
-        -d "Pushing image to repository..." https://ntfy.pangolin.openstudiolandscapes.cloud-ip.cc/builds \
+        -d "Pushing ${TARGET} image to repository..." https://ntfy.pangolin.openstudiolandscapes.cloud-ip.cc/builds \
     && time docker \
         --debug \
         --config /home/michael/.local/share/OpenStudioLandscapes/.landscapes/2026-06-25_08-51-54__healthy-showy-muddled-building/OpenStudioLandscapes/OpenStudioLandscapes_Base__docker_config_json \
@@ -431,16 +433,51 @@ NTFY_RSNAPSHOT_TOKEN=tk_amlipjwa7eb3rpxd00rsdshz5vyh5 \
     && /usr/bin/curl \
         -H "X-Title: OpenRV" \
         -H "Authorization: Bearer ${NTFY_RSNAPSHOT_TOKEN}" \
-        -d "Image pushed." https://ntfy.pangolin.openstudiolandscapes.cloud-ip.cc/builds
+        -d "${TARGET} image pushed." https://ntfy.pangolin.openstudiolandscapes.cloud-ip.cc/builds \
+    || /usr/bin/curl \
+        -H "X-Title: OpenRV" \
+        -H "Authorization: Bearer ${NTFY_RSNAPSHOT_TOKEN}" \
+        -d "Build to target ${TARGET} failed." https://ntfy.pangolin.openstudiolandscapes.cloud-ip.cc/builds
 ```
 
 ##### `rv_dependencies`
 
+> [!TIP]
+> 
+> This step seems to be failing for reasons that are
+> outside our control, for example an unstable network
+> connection. As a rule of thumb, the resulting log file
+> should weigh in at about 10MB.
+
+```
+# cat /root/OpenRV/_build/error_summary.txt
+FAILED: RV_DEPS_PYTHON3/install/RV_DEPS_PYTHON3-requirements-flag /root/OpenRV/_build/RV_DEPS_PYTHON3/install/RV_DEPS_PYTHON3-requirements-flag 
+  error: subprocess-exited-with-error
+```
+
+```
+#6 374.9 [197/282  69%] cd /root/OpenRV/_build/cmake/dependencies && /usr/local/bin/cmake -E env OPENSSL_DIR=/root/OpenRV/_build/RV_DEPS_OPENSSL/install CMAKE_ARGS=-DPYTHON_LIBRARY=/root/OpenRV/_build/RV_DEPS_PYTHON3/install/lib/libpython3.11.so\ -DPYTHON_INCLUDE_DIR=/root/OpenRV/_build/RV_DEPS_PYTHON3/install/include/python3.11\ -DPYTHON_EXECUTABLE=/root/OpenRV/_build/RV_DEPS_PYTHON3/install/bin/python3\ -DPython_INCLUDE_DIR=/root/OpenRV/_build/RV_DEPS_PYTHON3/install/include/python3.11\ -DPython_LIBRARY=/root/OpenRV/_build/RV_DEPS_PYTHON3/install/lib/libpython3.11.so\ -DPython_EXECUTABLE=/root/OpenRV/_build/RV_DEPS_PYTHON3/install/bin/python3\ -DPython_ROOT_DIR=/root/OpenRV/_build/RV_DEPS_PYTHON3/install /root/OpenRV/_build/RV_DEPS_PYTHON3/install/bin/python3 -s -E -I -m pip install --upgrade --no-cache-dir --force-reinstall --no-binary :all: --only-binary pip,setuptools,wheel,Cython,meson-python,ninja,cmake,PyOpenGL,certifi,six,packaging,requests,setuptools-rust,setuptools-scm,hatchling,hatch-vcs,pluggy,pathspec,trove-classifiers,vcs-versioning -r /root/OpenRV/_build/requirements.txt && cmake -E touch /root/OpenRV/_build/RV_DEPS_PYTHON3/install/RV_DEPS_PYTHON3-requirements-flag
+#6 374.9 FAILED: RV_DEPS_PYTHON3/install/RV_DEPS_PYTHON3-requirements-flag /root/OpenRV/_build/RV_DEPS_PYTHON3/install/RV_DEPS_PYTHON3-requirements-flag 
+#6 374.9 cd /root/OpenRV/_build/cmake/dependencies && /usr/local/bin/cmake -E env OPENSSL_DIR=/root/OpenRV/_build/RV_DEPS_OPENSSL/install CMAKE_ARGS=-DPYTHON_LIBRARY=/root/OpenRV/_build/RV_DEPS_PYTHON3/install/lib/libpython3.11.so\ -DPYTHON_INCLUDE_DIR=/root/OpenRV/_build/RV_DEPS_PYTHON3/install/include/python3.11\ -DPYTHON_EXECUTABLE=/root/OpenRV/_build/RV_DEPS_PYTHON3/install/bin/python3\ -DPython_INCLUDE_DIR=/root/OpenRV/_build/RV_DEPS_PYTHON3/install/include/python3.11\ -DPython_LIBRARY=/root/OpenRV/_build/RV_DEPS_PYTHON3/install/lib/libpython3.11.so\ -DPython_EXECUTABLE=/root/OpenRV/_build/RV_DEPS_PYTHON3/install/bin/python3\ -DPython_ROOT_DIR=/root/OpenRV/_build/RV_DEPS_PYTHON3/install /root/OpenRV/_build/RV_DEPS_PYTHON3/install/bin/python3 -s -E -I -m pip install --upgrade --no-cache-dir --force-reinstall --no-binary :all: --only-binary pip,setuptools,wheel,Cython,meson-python,ninja,cmake,PyOpenGL,certifi,six,packaging,requests,setuptools-rust,setuptools-scm,hatchling,hatch-vcs,pluggy,pathspec,trove-classifiers,vcs-versioning -r /root/OpenRV/_build/requirements.txt && cmake -E touch /root/OpenRV/_build/RV_DEPS_PYTHON3/install/RV_DEPS_PYTHON3-requirements-flag
+#6 374.9 Collecting opentimelineio @ git+https://github.com/cedrik-fuoco-adsk/OpenTimelineIO.git@fix-windows-debug-crash (from -r /root/OpenRV/_build/requirements.txt (line 15))
+#6 374.9   Cloning https://github.com/cedrik-fuoco-adsk/OpenTimelineIO.git (to revision fix-windows-debug-crash) to /tmp/pip-install-jf3ehwy5/opentimelineio_cd6c1e468a444cdeb71cc6acd03b7142
+#6 374.9   Running command git clone --filter=blob:none --quiet https://github.com/cedrik-fuoco-adsk/OpenTimelineIO.git /tmp/pip-install-jf3ehwy5/opentimelineio_cd6c1e468a444cdeb71cc6acd03b7142
+#6 374.9   fatal: unable to access 'https://github.com/cedrik-fuoco-adsk/OpenTimelineIO.git/': Could not resolve host: github.com
+#6 374.9   error: subprocess-exited-with-error
+#6 374.9   
+#6 374.9   × git clone --filter=blob:none --quiet https://github.com/cedrik-fuoco-adsk/OpenTimelineIO.git /tmp/pip-install-jf3ehwy5/opentimelineio_cd6c1e468a444cdeb71cc6acd03b7142 did not run successfully.
+#6 374.9   │ exit code: 128
+#6 374.9   ╰─> No available output.
+#6 374.9   
+#6 374.9   note: This error originates from a subprocess, and is likely not a problem with pip.
+#6 374.9 ERROR: Failed to build 'opentimelineio' when git clone --filter=blob:none --quiet https://github.com/cedrik-fuoco-adsk/opentimelineio.git /tmp/pip-install-jf3ehwy5/opentimelineio_cd6c1e468a444cdeb71cc6acd03b7142
+```
+
 ```shell
 export TARGET="rv_dependencies"
-DISABLE_BUILD_CACHE=true
+DISABLE_BUILD_CACHE=True
 
-LOGS=./dockerfiles/.logs
+LOGS=./.logs
 mkdir -p ${LOGS}
 
 DOCKERFILE="Dockerfile.Linux-Rocky9-CY2024" \
@@ -457,26 +494,21 @@ NTFY_RSNAPSHOT_TOKEN=tk_amlipjwa7eb3rpxd00rsdshz5vyh5 \
         --no-cache=${DISABLE_BUILD_CACHE} \
         --pull \
         --target ${TARGET} \
-        --output type=docker \
         --progress plain \
         --shm-size=32g \
         --tag registry.openstudiolandscapes.lan:5000/openrv/openstudiolandscapes-aswf-openrv-rocky9-cy2024-${TARGET}:${TIMESTAMP} \
         --tag registry.openstudiolandscapes.lan:5000/openrv/openstudiolandscapes-aswf-openrv-rocky9-cy2024-${TARGET}:latest \
-        --file dockerfiles/${DOCKERFILE} \
-        ./dockerfiles \
-        2>&1 | tee -a ${LOGS}/${DOCKERFILE}.${TARGET}.${TIMESTAMP}.log \
+        --file ./${DOCKERFILE} \
+        . \
+        &> >(tee -a ${LOGS}/${DOCKERFILE}.${TARGET}.${TIMESTAMP}.log) \
     && /usr/bin/curl \
         -H "X-Title: OpenRV" \
         -H "Authorization: Bearer ${NTFY_RSNAPSHOT_TOKEN}" \
         -d "Build to target ${TARGET} finished." https://ntfy.pangolin.openstudiolandscapes.cloud-ip.cc/builds \
-    || /usr/bin/curl \
-        -H "X-Title: OpenRV" \
-        -H "Authorization: Bearer ${NTFY_RSNAPSHOT_TOKEN}" \
-        -d "Build to target ${TARGET} failed." https://ntfy.pangolin.openstudiolandscapes.cloud-ip.cc/builds \
     && /usr/bin/curl \
         -H "X-Title: OpenRV" \
         -H "Authorization: Bearer ${NTFY_RSNAPSHOT_TOKEN}" \
-        -d "Pushing image to repository..." https://ntfy.pangolin.openstudiolandscapes.cloud-ip.cc/builds \
+        -d "Pushing ${TARGET} image to repository..." https://ntfy.pangolin.openstudiolandscapes.cloud-ip.cc/builds \
     && time docker \
         --debug \
         --config /home/michael/.local/share/OpenStudioLandscapes/.landscapes/2026-06-25_08-51-54__healthy-showy-muddled-building/OpenStudioLandscapes/OpenStudioLandscapes_Base__docker_config_json \
@@ -486,7 +518,11 @@ NTFY_RSNAPSHOT_TOKEN=tk_amlipjwa7eb3rpxd00rsdshz5vyh5 \
     && /usr/bin/curl \
         -H "X-Title: OpenRV" \
         -H "Authorization: Bearer ${NTFY_RSNAPSHOT_TOKEN}" \
-        -d "Image pushed." https://ntfy.pangolin.openstudiolandscapes.cloud-ip.cc/builds
+        -d "${TARGET} image pushed." https://ntfy.pangolin.openstudiolandscapes.cloud-ip.cc/builds \
+    || /usr/bin/curl \
+        -H "X-Title: OpenRV" \
+        -H "Authorization: Bearer ${NTFY_RSNAPSHOT_TOKEN}" \
+        -d "Build to target ${TARGET} failed." https://ntfy.pangolin.openstudiolandscapes.cloud-ip.cc/builds
 ```
 
 ##### `rv_build`
@@ -504,9 +540,9 @@ NTFY_RSNAPSHOT_TOKEN=tk_amlipjwa7eb3rpxd00rsdshz5vyh5 \
 
 ```shell
 export TARGET="rv_build"
-DISABLE_BUILD_CACHE=true
+DISABLE_BUILD_CACHE=True
 
-LOGS=./dockerfiles/.logs
+LOGS=./.logs
 mkdir -p ${LOGS}
 
 DOCKERFILE="Dockerfile.Linux-Rocky9-CY2024" \
@@ -523,26 +559,21 @@ NTFY_RSNAPSHOT_TOKEN=tk_amlipjwa7eb3rpxd00rsdshz5vyh5 \
         --no-cache=${DISABLE_BUILD_CACHE} \
         --pull \
         --target ${TARGET} \
-        --output type=docker \
         --progress plain \
         --shm-size=32g \
         --tag registry.openstudiolandscapes.lan:5000/openrv/openstudiolandscapes-aswf-openrv-rocky9-cy2024-${TARGET}:${TIMESTAMP} \
         --tag registry.openstudiolandscapes.lan:5000/openrv/openstudiolandscapes-aswf-openrv-rocky9-cy2024-${TARGET}:latest \
-        --file dockerfiles/${DOCKERFILE} \
-        ./dockerfiles \
-        2>&1 | tee -a ${LOGS}/${DOCKERFILE}.${TARGET}.${TIMESTAMP}.log \
+        --file ./${DOCKERFILE} \
+        . \
+        &> >(tee -a ${LOGS}/${DOCKERFILE}.${TARGET}.${TIMESTAMP}.log) \
     && /usr/bin/curl \
         -H "X-Title: OpenRV" \
         -H "Authorization: Bearer ${NTFY_RSNAPSHOT_TOKEN}" \
         -d "Build to target ${TARGET} finished." https://ntfy.pangolin.openstudiolandscapes.cloud-ip.cc/builds \
-    || /usr/bin/curl \
-        -H "X-Title: OpenRV" \
-        -H "Authorization: Bearer ${NTFY_RSNAPSHOT_TOKEN}" \
-        -d "Build to target ${TARGET} failed." https://ntfy.pangolin.openstudiolandscapes.cloud-ip.cc/builds \
     && /usr/bin/curl \
         -H "X-Title: OpenRV" \
         -H "Authorization: Bearer ${NTFY_RSNAPSHOT_TOKEN}" \
-        -d "Pushing image to repository..." https://ntfy.pangolin.openstudiolandscapes.cloud-ip.cc/builds \
+        -d "Pushing ${TARGET} image to repository..." https://ntfy.pangolin.openstudiolandscapes.cloud-ip.cc/builds \
     && time docker \
         --debug \
         --config /home/michael/.local/share/OpenStudioLandscapes/.landscapes/2026-06-25_08-51-54__healthy-showy-muddled-building/OpenStudioLandscapes/OpenStudioLandscapes_Base__docker_config_json \
@@ -552,7 +583,11 @@ NTFY_RSNAPSHOT_TOKEN=tk_amlipjwa7eb3rpxd00rsdshz5vyh5 \
     && /usr/bin/curl \
         -H "X-Title: OpenRV" \
         -H "Authorization: Bearer ${NTFY_RSNAPSHOT_TOKEN}" \
-        -d "Image pushed." https://ntfy.pangolin.openstudiolandscapes.cloud-ip.cc/builds
+        -d "${TARGET} image pushed." https://ntfy.pangolin.openstudiolandscapes.cloud-ip.cc/builds \
+    || /usr/bin/curl \
+        -H "X-Title: OpenRV" \
+        -H "Authorization: Bearer ${NTFY_RSNAPSHOT_TOKEN}" \
+        -d "Build to target ${TARGET} failed." https://ntfy.pangolin.openstudiolandscapes.cloud-ip.cc/builds
 ```
 
 > [!TIP]
@@ -602,9 +637,9 @@ NTFY_RSNAPSHOT_TOKEN=tk_amlipjwa7eb3rpxd00rsdshz5vyh5 \
 
 ```shell
 export TARGET="rv_install"
-DISABLE_BUILD_CACHE=true
+DISABLE_BUILD_CACHE=True
 
-LOGS=./dockerfiles/.logs
+LOGS=./.logs
 mkdir -p ${LOGS}
 
 DOCKERFILE="Dockerfile.Linux-Rocky9-CY2024" \
@@ -621,26 +656,21 @@ NTFY_RSNAPSHOT_TOKEN=tk_amlipjwa7eb3rpxd00rsdshz5vyh5 \
         --no-cache=${DISABLE_BUILD_CACHE} \
         --pull \
         --target ${TARGET} \
-        --output type=docker \
         --progress plain \
         --shm-size=32g \
         --tag registry.openstudiolandscapes.lan:5000/openrv/openstudiolandscapes-aswf-openrv-rocky9-cy2024-${TARGET}:${TIMESTAMP} \
         --tag registry.openstudiolandscapes.lan:5000/openrv/openstudiolandscapes-aswf-openrv-rocky9-cy2024-${TARGET}:latest \
-        --file dockerfiles/${DOCKERFILE} \
-        ./dockerfiles \
-        2>&1 | tee -a ${LOGS}/${DOCKERFILE}.${TARGET}.${TIMESTAMP}.log \
+        --file ./${DOCKERFILE} \
+        . \
+        &> >(tee -a ${LOGS}/${DOCKERFILE}.${TARGET}.${TIMESTAMP}.log) \
     && /usr/bin/curl \
         -H "X-Title: OpenRV" \
         -H "Authorization: Bearer ${NTFY_RSNAPSHOT_TOKEN}" \
         -d "Build to target ${TARGET} finished." https://ntfy.pangolin.openstudiolandscapes.cloud-ip.cc/builds \
-    || /usr/bin/curl \
-        -H "X-Title: OpenRV" \
-        -H "Authorization: Bearer ${NTFY_RSNAPSHOT_TOKEN}" \
-        -d "Build to target ${TARGET} failed." https://ntfy.pangolin.openstudiolandscapes.cloud-ip.cc/builds \
     && /usr/bin/curl \
         -H "X-Title: OpenRV" \
         -H "Authorization: Bearer ${NTFY_RSNAPSHOT_TOKEN}" \
-        -d "Pushing image to repository..." https://ntfy.pangolin.openstudiolandscapes.cloud-ip.cc/builds \
+        -d "Pushing ${TARGET} image to repository..." https://ntfy.pangolin.openstudiolandscapes.cloud-ip.cc/builds \
     && time docker \
         --debug \
         --config /home/michael/.local/share/OpenStudioLandscapes/.landscapes/2026-06-25_08-51-54__healthy-showy-muddled-building/OpenStudioLandscapes/OpenStudioLandscapes_Base__docker_config_json \
@@ -650,7 +680,11 @@ NTFY_RSNAPSHOT_TOKEN=tk_amlipjwa7eb3rpxd00rsdshz5vyh5 \
     && /usr/bin/curl \
         -H "X-Title: OpenRV" \
         -H "Authorization: Bearer ${NTFY_RSNAPSHOT_TOKEN}" \
-        -d "Image pushed." https://ntfy.pangolin.openstudiolandscapes.cloud-ip.cc/builds
+        -d "${TARGET} image pushed." https://ntfy.pangolin.openstudiolandscapes.cloud-ip.cc/builds \
+    || /usr/bin/curl \
+        -H "X-Title: OpenRV" \
+        -H "Authorization: Bearer ${NTFY_RSNAPSHOT_TOKEN}" \
+        -d "Build to target ${TARGET} failed." https://ntfy.pangolin.openstudiolandscapes.cloud-ip.cc/builds
 ```
 
 ---
@@ -659,7 +693,7 @@ NTFY_RSNAPSHOT_TOKEN=tk_amlipjwa7eb3rpxd00rsdshz5vyh5 \
 
 ```shell
 export TARGET="rv_rocky"
-DISABLE_BUILD_CACHE=true
+DISABLE_BUILD_CACHE=True
 
 LOGS=./dockerfiles/.logs
 mkdir -p ${LOGS}
@@ -678,14 +712,13 @@ NTFY_RSNAPSHOT_TOKEN=tk_amlipjwa7eb3rpxd00rsdshz5vyh5 \
         --no-cache=${DISABLE_BUILD_CACHE} \
         --pull \
         --target ${TARGET} \
-        --output type=docker \
         --progress plain \
         --shm-size=32g \
         --tag registry.openstudiolandscapes.lan:5000/openrv/openstudiolandscapes-aswf-openrv-rocky9-cy2024-${TARGET}:${TIMESTAMP} \
         --tag registry.openstudiolandscapes.lan:5000/openrv/openstudiolandscapes-aswf-openrv-rocky9-cy2024-${TARGET}:latest \
         --file dockerfiles/${DOCKERFILE} \
         ./dockerfiles \
-        2>&1 | tee -a ${LOGS}/${DOCKERFILE}.${TARGET}.${TIMESTAMP}.log \
+        &> >(tee -a ${LOGS}/${DOCKERFILE}.${TARGET}.${TIMESTAMP}.log) \
     && /usr/bin/curl \
         -H "X-Title: OpenRV" \
         -H "Authorization: Bearer ${NTFY_RSNAPSHOT_TOKEN}" \
