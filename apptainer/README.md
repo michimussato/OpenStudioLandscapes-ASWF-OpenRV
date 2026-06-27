@@ -10,6 +10,7 @@
   * [Resources](#resources)
     * [Alternate Approaches](#alternate-approaches)
   * [Build](#build)
+    * [Log in to Private Registry](#log-in-to-private-registry)
     * [Apptainer](#apptainer-1)
     * [From Docker Image](#from-docker-image)
   * [Non Free Codecs](#non-free-codecs)
@@ -32,6 +33,64 @@ Resources:
   - local images:
     - [Using Containers in Supercomputing Environment](https://yetulaxman.github.io/ContainersHPC2024/hands-on/local_docker_to_apptainer.html)
     - [ucla-oarc-cs/docker-to-apptainer](https://github.com/ucla-oarc-cs/docker-to-apptainer)
+- [Multistage Apptainer](https://github.com/apptainer/apptainer/blob/main/examples/multistage/Apptainer)
+
+```shell
+export TARGET="rv_rocky"
+
+mkdir -p ./OpenStudioLandscapes-ASWF-OpenRV-BuildBox-CY2024-${TARGET}
+
+docker save \
+    openstudiolandscapes-aswf-openrv-rocky9-cy2024-${TARGET}:latest \
+    --output ./OpenStudioLandscapes-ASWF-OpenRV-BuildBox-CY2024-${TARGET}/openstudiolandscapes-aswf-openrv-rocky9-cy2024-${TARGET}.latest.tar
+
+apptainer build \
+    ./OpenStudioLandscapes-ASWF-OpenRV-BuildBox-CY2024-${TARGET}/openstudiolandscapes-aswf-openrv-rocky9-cy2024-${TARGET}.sif \
+    docker-archive://./OpenStudioLandscapes-ASWF-OpenRV-BuildBox-CY2024-${TARGET}/openstudiolandscapes-aswf-openrv-rocky9-cy2024-${TARGET}.latest.tar
+#     \
+#    && chown "$(stat -c %u /work)":"$(stat -c %g /work)" /work/<output_name>.sif
+
+# apptainer --version
+# apptainer version 1.5.0
+# singularity --version
+# apptainer version 1.5.0
+# -> https://apptainer.org/docs/user/main/singularity_compatibility.html#singularity-command-symlink
+
+# https://stackoverflow.com/a/60316979
+# --compat ?
+# apptainer cache clean
+# /tmp might not be large enough for large images.
+# https://apptainer.org/docs/user/main/build_env.html#temporary-folders
+# APPTAINER_TMPDIR needs to be absolute
+# APPTAINER_CACHEDIR needs to be absolute?
+APPTAINER_TMPDIR=/home/michael/git/repos/OpenStudioLandscapes-ASWF-OpenRV/apptainer/tmp \
+APPTAINER_CACHEDIR=/home/michael/git/repos/OpenStudioLandscapes-ASWF-OpenRV/apptainer/cache \
+singularity build \
+    ./OpenStudioLandscapes-ASWF-OpenRV-BuildBox-CY2024-${TARGET}/openstudiolandscapes-aswf-openrv-rocky9-cy2024-${TARGET}.sif \
+    docker-daemon://openstudiolandscapes-aswf-openrv-rocky9-cy2024-${TARGET}:latest
+
+# i.e.
+# apptainer exec \
+#     --nv \
+#     --bind /run/user/$UID \
+#     ./OpenStudioLandscapes-ASWF-OpenRV-BuildBox-CY2024-${TARGET}/openstudiolandscapes-aswf-openrv-rocky9-cy2024-${TARGET}.sif \
+#     /opt/rv/bin/rv \
+#     -rthreads $(nproc) \
+#     -workItemThreads $(nproc) \
+#     -diff \
+#     '/home/user/Downloads/Big_Buck_Bunny_1080_10s_5MB_AV1.mp4' \
+#     '/home/user/Downloads/Big_Buck_Bunny_1080_10s_5MB_h264.mp4'
+
+# The user in the Docker image has to be root?
+apptainer -d exec \
+    ./OpenStudioLandscapes-ASWF-OpenRV-BuildBox-CY2024-${TARGET}/openstudiolandscapes-aswf-openrv-rocky9-cy2024-${TARGET}.sif \
+    /opt/rv/bin/rv
+# /opt/rv/bin/rv.bin
+# Version 4.0.0 (RELEASE), built on Jun 24 2026 at 07:57:53 (HEAD=4517984).
+# Copyright Contributors to the Open RV Project
+# INFO: File logger path: /home/michael/.local/share/ASWF/OpenRV/
+# Segmentation fault         (core dumped) apptainer exec --nv ./OpenStudioLandscapes-ASWF-OpenRV-BuildBox-CY2024-${TARGET}/openstudiolandscapes-aswf-openrv-rocky9-cy2024-${TARGET}.sif /opt/rv/bin/rv
+```
 
 ## Install
 
@@ -99,24 +158,72 @@ sudo dnf install apptainer time
 
 ## Build
 
+### Log in to Private Registry
+
+```shell
+apptainer registry \
+    login \
+    -u <registry-user> \
+    -p <registry-password> \
+    docker://registry.openstudiolandscapes.lan:5000
+```
+
+```
+# cat /home/michael/.docker/config.json
+{
+        "auths": {
+                "https://index.docker.io/v1/": {
+                        "auth": "bWljaGltdXNzYXRvOmRja3JfcGF0X21EbklXYXpqcThZN21tZm5sNE1BeG5HSDZYOA=="
+                },
+                "https://index.docker.io/v1/access-token": {
+                        "auth": "bWljaGltdXNzYXRvOmV5SmhiR2NpT2lKU1V6STFOaUlzSW5SNWNDSTZJa3BYVkNJc0ltdHBaQ0k2SW5oWWEzQkNkRE55VjNNeVJ5MTFZamxzY0VwbmNTSjkuZXlKb2RIUndjem92TDJoMVlpNWtiMk5yWlhJdVkyOXRJanA3SW1WdFlXbHNJam9pYldsamFHbHRkWE56WVhSdlFHZHRZV2xzTG1OdmJTSXNJbk5sYzNOcGIyNWZhV1FpT2lKbU9EUmpOell4WmkwMU0yUTBMVFExWXpRdFltVTNNaTFsTnpjME5EazRaVGN5TW1JaUxDSnpiM1Z5WTJVaU9pSmhkWFJvTUNJc0luVnpaWEp1WVcxbElqb2liV2xqYUdsdGRYTnpZWFJ2SWl3aWRYVnBaQ0k2SWpJMk1UTTJORGcyTFRCaU1XSXROR0V6TnkxaE9XTm1MVFppTTJWaFkyTm1aREEwWWlKOUxDSnBjM01pT2lKb2RIUndjem92TDJ4dloybHVMbVJ2WTJ0bGNpNWpiMjB2SWl3aWMzVmlJam9pWVhWMGFEQjhNall4TXpZME9EWXRNR0l4WWkwMFlUTTNMV0U1WTJZdE5tSXpaV0ZqWTJaa01EUmlJaXdpWVhWa0lqcGJJbWgwZEhCek9pOHZhSFZpTG1SdlkydGxjaTVqYjIwaUxDSm9kSFJ3Y3pvdkwyUnZZMnRsY2kxd2NtOWtMblZ6TG1GMWRHZ3dMbU52YlM5MWMyVnlhVzVtYnlKZExDSnBZWFFpT2pFM09ERXhPREV5TnpFc0ltVjRjQ0k2TVRjNE1URTRNakUzTVN3aWMyTnZjR1VpT2lKdmNHVnVhV1FnYjJabWJHbHVaVjloWTJObGMzTWlMQ0poZW5BaU9pSk1OSFl3Wkcxc1RrSndXVlZxUjBkaFlqQkRNa3AwWjFSbldISXhVWG8wWkNKOS52TE5aR2NVd2p4QnMxSkRRSXFYRzYyY2QweW01Slg5azNXT1cycEllejRBVkFhNDh0UGEwNERzVk8wN1E0Z3A5YllXdFRONzBPV2NTeUkxdF8xWjRCbS1nUGV2b090ZTJWSElXSmU5bzNyRjVQZ0dTTC1iY3NLMHBid2dUX05VLWZ1a1lJSzRJaW9sWGtCMHhZa25QeTk3SDVoUFRiMGhDMXdzTS1QVy1pTnQyeHFFUkxNTjlZaDE5bFYtZWt3dW9nR0M4djFFSXVabWUwQUstbWFmVDVYN0xEek50WU5NUWlvN2Q5bzBaTFF1dzlpaWZVTzRGSHpGR0NNbFVvTF8tTS03ejEwWWt6ZkJDZG5yeFJVZTZDVERRMkdwTDBIUUlSTGdJM2c5RklYYjhtZmpCdTFnbEZzMDRTc1BxaG5pU181aGxIWGlrS1dCYnNZU0xsbmM3MUE="
+                },
+                "https://index.docker.io/v1/refresh-token": {
+                        "auth": "bWljaGltdXNzYXRvOnYxLk1mYnlBUEo1a3dSaktUb1NSY3B1TkJFR2NrbTE2Zm5ucnc0M282cEZSVHVlZ18tN2VNOXkyWjB3TkZfQjJtQmZ5SWY0QlE2aHlVc2M1SzJkWjdjZWdWYy4uTDR2MGRtbE5CcFlVakdHYWIwQzJKdGdUZ1hyMVF6NGQ="
+                },
+                "registry-1.docker.io": {
+                        "auth": "bWljaGltdXNzYXRvQGdtYWlsLmNvbTo3RjtCZSY6JjYzSGkzfSY="
+                },
+                "registry.openstudiolandscapes.lan:5000": {
+                        "auth": "cmVnaXN0cnktdXNlcjpyZWdpc3RyeS1wYXNzd29yZA=="
+                }
+        }
+}
+```
+
+```yaml
+# cat /home/michael/.apptainer/remote.yamll
+Active: DefaultRemote
+Remotes:
+    DefaultRemote:
+        URI: cloud.apptainer.org
+        System: true
+        Exclusive: false
+Credentials:
+    - URI: docker://registry.openstudiolandscapes.lan:5000
+      Insecure: false
+```
+
 ### Apptainer
 
 ```shell
 export APPTAINERFILE="OpenRV.def"
 export TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
 
+export APPTAINER_TMPDIR=/home/michael/git/repos/OpenStudioLandscapes-ASWF-OpenRV/apptainer/tmp
+export APPTAINER_CACHEDIR=/home/michael/git/repos/OpenStudioLandscapes-ASWF-OpenRV/apptainer/cache
+
 /usr/bin/time -f 'Commandline Args: %C\nElapsed Time: %E\nPeak Memory: %M\nExit Code: %x' \
     apptainer \
-    --config ./apptainer/conf/apptainer.conf \
-    --verbose \
+    --config ./conf/apptainer.conf \
+    --debug \
     build \
     --ignore-fakeroot-command \
     --build-arg-file .env \
     --warn-unused-build-args \
-    ./apptainer/.sif/OpenRV_${TIMESTAMP}.sif \
-    ./apptainer/${APPTAINERFILE} \
-    > >(tee -a ./apptainer/.logs/${APPTAINERFILE}.${TIMESTAMP}.STDOUT.log) \
-    2> >(tee -a ./apptainer/.logs/${APPTAINERFILE}.${TIMESTAMP}.STDERR.log >&2)
+    ./.sif/OpenRV_${TIMESTAMP}.sif \
+    ./${APPTAINERFILE} \
+    &> >(tee -a ./.logs/${APPTAINERFILE}.${TIMESTAMP}.log)
 
 unset APPTAINERFILE TIMESTAMP
 ```
@@ -169,6 +276,7 @@ apptainer exec --nv --bind /run/user/$UID,/Volumes,/run/media/$USER OpenRV.sif /
 
 ```
 $ apptainer exec --nv OpenRV.sif  /build/OpenRV/_install/bin/rv
+$ apptainer --debug exec --nv OpenRV_2026-06-26_15-42-48.sif /rv/build/OpenRV/_install/bin/rv
 /build/OpenRV/_install/bin/rv.bin: /lib64/libc.so.6: version `GLIBC_2.38' not found (required by /.singularity.d/libs/libGLX.so.0)
 /build/OpenRV/_install/bin/rv.bin: /lib64/libc.so.6: version `GLIBC_2.38' not found (required by /.singularity.d/libs/libGLdispatch.so.0)
 ```

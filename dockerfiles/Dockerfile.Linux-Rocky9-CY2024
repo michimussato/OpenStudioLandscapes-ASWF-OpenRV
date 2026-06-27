@@ -25,18 +25,6 @@ USER root
 WORKDIR ${WORKDIR}
 
 # static versions:
-ENV NINJA_VERSION="1.12.1"
-
-# ─────────────────────────────────────────────
-# CY2024 Configuration
-# ─────────────────────────────────────────────
-# Set RV_VFX_PLATFORM to 2024 so that we won't be confronted with an interactive
-# questionnaire from `rvcmds.sh`:
-ENV RV_VFX_PLATFORM="CY2024"
-ENV PYTHON_VERSION="3.11.8"
-ENV QT_VERSION="6.5.3"
-ENV QT_MODULES="debug_info qt3d qt5compat qtcharts qtconnectivity qtdatavis3d qtgrpc qthttpserver qtimageformats qtlanguageserver qtlocation qtlottie qtmultimedia qtnetworkauth qtpdf qtpositioning qtquick3d qtquick3dphysics qtquickeffectmaker qtquicktimeline qtremoteobjects qtscxml qtsensors qtserialbus qtserialport qtshadertools qtspeech qtvirtualkeyboard qtwaylandcompositor qtwebchannel qtwebengine qtwebsockets qtwebview"
-ENV QT_ARCHIVES="icu qtbase qtdeclarative qtsvg qttools qttranslations qtwayland"
 
 # Install tools and build dependencies
 RUN dnf upgrade -y \
@@ -44,9 +32,10 @@ RUN dnf upgrade -y \
     && dnf config-manager --set-enabled crb devel \
     && dnf install -y perl-CPAN
 
+ENV PERL_MM_USE_DEFAULT=1
 RUN cpan FindBin
     
-RUN dnf groupinstall "Development Tools" -y \
+RUN dnf groupinstall -y "Development Tools" \
     && dnf install -y \
     alsa-lib-devel \
     autoconf \
@@ -72,6 +61,7 @@ RUN dnf groupinstall "Development Tools" -y \
     libXrandr-devel \
     libXrender-devel \
     libXtst \
+    xcb-util-cursor \
     libXxf86vm-devel \
     libaio-devel \
     libffi-devel \
@@ -135,8 +125,8 @@ RUN curl \
         -o cmake-${CMAKE_VERSION}.tar.gz \
     && tar -xzvf cmake-${CMAKE_VERSION}.tar.gz \
     && pushd cmake-${CMAKE_VERSION} \
-    && ./configure --prefix=${CMAKE_BASE} \
-    && make \
+    && ./bootstrap --parallel=$(nproc --all) --prefix=${CMAKE_BASE} \
+    && make -j $(nproc --all) \
     && make install \
     && popd \
     && rm -rf cmake-${CMAKE_VERSION}*
@@ -234,13 +224,14 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no
 # Todo
 #  - [x] move to /opt/ninja
 ENV NINJA_HOME="/opt/ninja"
+ENV NINJA_VERSION="1.12.1"
 RUN mkdir -p ${NINJA_HOME}
 ENV PATH="${NINJA_HOME}:${PATH}"
 RUN curl \
         -L https://github.com/ninja-build/ninja/releases/download/v${NINJA_VERSION}/ninja-linux.zip \
         -o ninja-linux.zip \
     && unzip ninja-linux.zip -d "${NINJA_HOME}" \
-    && rm ninja-linux.zip
+    && rm -f ninja-linux.zip
 
 # Install pyenv
 # Is this a problem with user `root`?
@@ -251,23 +242,27 @@ ENV PIP_ROOT_USER_ACTION=ignore
 ENV PYENV_ROOT="/opt/pyenv"
 ENV PATH="${PYENV_ROOT}/shims:${PYENV_ROOT}/bin:${PATH}"
 RUN git clone http://github.com/pyenv/pyenv.git ${PYENV_ROOT}
-RUN echo 'eval "$(pyenv init -)"' >> /etc/bash.bashrc
+RUN echo 'eval "$(pyenv init -)"' >> /etc/profile
 
 # Python environment
+ENV PYTHON_VERSION="3.11.8"
 RUN pyenv install ${PYTHON_VERSION}
 RUN pyenv global ${PYTHON_VERSION}
 
 RUN pip install --upgrade pip
 
-RUN python -m pip install aqtinstall
 
 # Install Qt
 # This does not seem to cache
 # Todo
 #  - [x] move to /opt/Qt
 ENV QT_BASE="/opt/Qt"
+ENV QT_VERSION="6.5.3"
 ENV QT_HOME="${QT_BASE}/${QT_VERSION}/gcc_64"
-ENV QT_QPA_PLATFORM="offscreen"
+ENV QT_MODULES="debug_info qt3d qt5compat qtcharts qtconnectivity qtdatavis3d qtgrpc qthttpserver qtimageformats qtlanguageserver qtlocation qtlottie qtmultimedia qtnetworkauth qtpdf qtpositioning qtquick3d qtquick3dphysics qtquickeffectmaker qtquicktimeline qtremoteobjects qtscxml qtsensors qtserialbus qtserialport qtshadertools qtspeech qtvirtualkeyboard qtwaylandcompositor qtwebchannel qtwebengine qtwebsockets qtwebview"
+ENV QT_ARCHIVES="icu qtbase qtdeclarative qtsvg qttools qttranslations qtwayland"
+ENV QT_QPA_PLATFORM="xcb"
+RUN python -m pip install aqtinstall
 RUN python -m aqt install-qt linux desktop ${QT_VERSION} gcc_64 -O ${QT_BASE} \
     -m ${QT_MODULES} \
     --archives ${QT_ARCHIVES}
@@ -290,9 +285,33 @@ FROM registry.openstudiolandscapes.lan:5000/openrv/openstudiolandscapes-aswf-ope
 
 # USER rv
 
+ENV RV_REPO="/rv/build/OpenRV"
+
+# ─────────────────────────────────────────────
+# CY2024 Configuration
+# ─────────────────────────────────────────────
+# Set RV_VFX_PLATFORM to 2024 so that we won't be confronted with an interactive
+# questionnaire from `rvcmds.sh`:
+ENV RV_VFX_PLATFORM="CY2024"
+ENV RV_BUILD_TYPE="Debug"
+
+WORKDIR ${RV_REPO}
+
+
 # Build OpenRV
-WORKDIR ${WORKDIR}/OpenRV
-RUN git clone --recursive https://github.com/michimussato/OpenStudioLandscapes-ASWF-OpenRV.git .
+# ENV OPENRV_TAG="v3.2.0"
+# is version 4.0.0 (not tagged/released yet) buggy?
+RUN git clone --recursive https://github.com/AcademySoftwareFoundation/OpenRV.git .
+# RUN git clone --recursive https://github.com/michimussato/OpenStudioLandscapes-ASWF-OpenRV.git .
+# RUN git clone --depth 1 --branch ${OPENRV_TAG} --recursive https://github.com/michimussato/OpenStudioLandscapes-ASWF-OpenRV.git .
+# Overwrite with custom rvcmds.sh
+RUN git config blame.ignoreRevsFile .git-blame-ignore-revs
+# COPY ./static/rvcmds.sh .
+
+# Try with release from
+# https://github.com/AcademySoftwareFoundation/OpenRV/releases/tag/v3.2.0
+# COPY ./static/OpenRV-3.2.0/ .
+
 
 # RUN ls -al
 # RUN cat rvcmds.sh
@@ -364,26 +383,62 @@ FROM registry.openstudiolandscapes.lan:5000/openrv/openstudiolandscapes-aswf-ope
 # #6 8.903   Add the installation prefix of "Qt6" to CMAKE_PREFIX_PATH or set "Qt6_DIR"
 # #6 8.903   to a directory containing one of the above files.  If "Qt6" provides a
 # #6 8.903   separate development package or SDK, be sure it has been installed.
-ENV Qt6_DIR="${QT_HOME}/lib/cmake/Qt6"
+# ENV Qt6_DIR="${QT_HOME}/lib/cmake/Qt6"
+
+WORKDIR ${RV_REPO}
 
 RUN source rvcmds.sh \
-    && rvsetup \
-    && rvcfg
+    && python3 -m venv .venv \
+    && source .venv/bin/activate \
+    && pip install --upgrade pip \
+    && SETUPTOOLS_USE_DISTUTILS=${SETUPTOOLS_USE_DISTUTILS} python3 -m pip install --upgrade -r ${RV_REPO}/requirements.txt \
+    && pre-commit install \
+    && time cmake -B ${RV_BUILD_DIR} -G "${CMAKE_GENERATOR}" ${RV_TOOLCHAIN} ${CMAKE_WIN_ARCH} -DCMAKE_BUILD_TYPE=${RV_BUILD_TYPE} -DRV_DEPS_QT_LOCATION=${QT_HOME} -DRV_VFX_PLATFORM=${RV_VFX_PLATFORM} -DRV_DEPS_WIN_PERL_ROOT=${WIN_PERL} 2>&1 | tee "cmake.log" \
+    && deactivate
+
+# RUN source rvcmds.sh \
+#     && rvsetup \
+#     && rvcfg
 
 FROM registry.openstudiolandscapes.lan:5000/openrv/openstudiolandscapes-aswf-openrv-rocky9-cy2024-rv_configure:latest AS rv_dependencies
 # 2. Build Third Party Dependencies
+# RUN source rvcmds.sh \
+#     && rvbuildt dependencies
+
+WORKDIR ${RV_REPO}
+
 RUN source rvcmds.sh \
-    && rvbuildt dependencies
+    && source .venv/bin/activate \
+    && set -xo pipefail \
+    && TARGET="dependencies" && time cmake --build ${RV_BUILD_DIR} --config ${RV_BUILD_TYPE} -v --parallel=${RV_BUILD_PARALLELISM} --target ${TARGET} -- --verbose ${ninja_flags} 2>&1 | tee "${RV_BUILD_DIR}/build_${TARGET}.log" \
+    && set +xo pipefail \
+    && deactivate
 
 FROM registry.openstudiolandscapes.lan:5000/openrv/openstudiolandscapes-aswf-openrv-rocky9-cy2024-rv_dependencies:latest AS rv_build
 # 3. Build OpenRV
+# RUN source rvcmds.sh \
+#     && rvbuildt main_executable  # or `rvbuild`
+
+WORKDIR ${RV_REPO}
+
 RUN source rvcmds.sh \
-    && rvbuildt main_executable  # or `rvbuild`
+    && source .venv/bin/activate \
+    && set -xo pipefail \
+    && TARGET="main_executable" && time cmake --build ${RV_BUILD_DIR} --config ${RV_BUILD_TYPE} -v --parallel=${RV_BUILD_PARALLELISM} --target ${TARGET} -- --verbose ${ninja_flags} 2>&1 | tee "${RV_BUILD_DIR}/build_${TARGET}.log" \
+    && set +xo pipefail \
+    && deactivate
 
 FROM registry.openstudiolandscapes.lan:5000/openrv/openstudiolandscapes-aswf-openrv-rocky9-cy2024-rv_build:latest AS rv_install
 # 4. Install OpenRV
+# RUN source rvcmds.sh \
+#     && rvinst
+
+WORKDIR ${RV_REPO}
+
 RUN source rvcmds.sh \
-    && rvinst
+    && source .venv/bin/activate \
+    && time cmake --install ${RV_BUILD_DIR} --prefix ${RV_INST_DIR} --config ${RV_BUILD_TYPE} 2>&1 | tee "${RV_BUILD_DIR}/install_errors.log" \
+    && deactivate
 
 # RUN source rvcmds.sh \
 #     && rvsetup \

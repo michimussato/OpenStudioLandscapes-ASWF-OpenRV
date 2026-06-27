@@ -3,6 +3,7 @@
 ---
 
 <!-- TOC -->
+* [Repository](#repository)
 * [Build OpenRV with Docker](#build-openrv-with-docker)
   * [Overview - Decision Tree](#overview---decision-tree)
   * [Step 1 - Build Docker Image](#step-1---build-docker-image)
@@ -27,6 +28,18 @@
 <!-- TOC -->
 
 ---
+
+# Repository
+
+Checkout repo and sync tags with upstream:
+
+```shell
+git clone --recursive https://github.com/michimussato/OpenStudioLandscapes-ASWF-OpenRV
+cd OpenStudioLandscapes-ASWF-OpenRV
+git remote add upstream https://github.com/AcademySoftwareFoundation/OpenRV
+git fetch --tags upstream
+git push --tags
+```
 
 # Build OpenRV with Docker
 
@@ -282,7 +295,7 @@ docker \
 
 ```shell
 export TARGET="openrv_base"
-DISABLE_BUILD_CACHE=False
+DISABLE_BUILD_CACHE=True
 
 LOGS=./.logs
 mkdir -p ${LOGS}

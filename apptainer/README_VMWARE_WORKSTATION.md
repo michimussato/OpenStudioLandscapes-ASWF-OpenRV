@@ -73,6 +73,7 @@ dnf config-manager --set-disabled devel
 # Install Pyenv
 echo 'export PIP_ROOT_USER_ACTION=ignore' >> /etc/profile
 echo 'export PYENV_ROOT="/opt/pyenv"' >> /etc/profile
+echo 'export PYTHON_VERSION="3.11.8"' >> /etc/profile
 echo 'export PATH="${PYENV_ROOT}/shims:${PYENV_ROOT}/bin:${PATH}"' >> /etc/profile
 exec -l $SHELL
 # export PYENV_ROOT="/opt/pyenv"
@@ -82,8 +83,8 @@ mkdir -p "${PYENV_ROOT}"
 git clone http://github.com/pyenv/pyenv.git ${PYENV_ROOT}
 echo 'eval "$(pyenv init -)"' >> /etc/profile
 exec -l $SHELL
-pyenv install 3.11.8
-pyenv global 3.11.8
+pyenv install ${PYTHON_VERSION}
+pyenv global ${PYTHON_VERSION}
 pip install --upgrade pip
 
 # Install CMake
