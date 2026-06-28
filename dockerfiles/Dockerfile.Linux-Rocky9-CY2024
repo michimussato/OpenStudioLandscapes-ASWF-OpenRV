@@ -410,7 +410,7 @@ WORKDIR ${RV_REPO}
 RUN source rvcmds.sh \
     && source .venv/bin/activate \
     && set -xo pipefail \
-    && TARGET="dependencies" && time cmake --build ${RV_BUILD_DIR} --config ${RV_BUILD_TYPE} -v --parallel=${RV_BUILD_PARALLELISM} --target ${TARGET} -- --verbose ${ninja_flags} 2>&1 | tee "${RV_BUILD_DIR}/build_${TARGET}.log" \
+    && TARGET="dependencies" && time cmake --build ${RV_BUILD_DIR} --config ${RV_BUILD_TYPE} -v --parallel=${RV_BUILD_PARALLELISM} --target ${TARGET} -- --verbose ${ninja_flags} 2>&1 | tee "${RV_BUILD_DIR}/build_${TARGET}_$(git rev-parse --short HEAD).log" \
     && set +xo pipefail \
     && deactivate
 
@@ -424,7 +424,7 @@ WORKDIR ${RV_REPO}
 RUN source rvcmds.sh \
     && source .venv/bin/activate \
     && set -xo pipefail \
-    && TARGET="main_executable" && time cmake --build ${RV_BUILD_DIR} --config ${RV_BUILD_TYPE} -v --parallel=${RV_BUILD_PARALLELISM} --target ${TARGET} -- --verbose ${ninja_flags} 2>&1 | tee "${RV_BUILD_DIR}/build_${TARGET}.log" \
+    && TARGET="main_executable" && time cmake --build ${RV_BUILD_DIR} --config ${RV_BUILD_TYPE} -v --parallel=${RV_BUILD_PARALLELISM} --target ${TARGET} -- --verbose ${ninja_flags} 2>&1 | tee "${RV_BUILD_DIR}/build_${TARGET}_$(git rev-parse --short HEAD).log" \
     && set +xo pipefail \
     && deactivate
 
@@ -437,7 +437,7 @@ WORKDIR ${RV_REPO}
 
 RUN source rvcmds.sh \
     && source .venv/bin/activate \
-    && time cmake --install ${RV_BUILD_DIR} --prefix ${RV_INST_DIR} --config ${RV_BUILD_TYPE} 2>&1 | tee "${RV_BUILD_DIR}/install_errors.log" \
+    && time cmake --install ${RV_BUILD_DIR} --prefix ${RV_INST_DIR} --config ${RV_BUILD_TYPE} 2>&1 | tee "${RV_BUILD_DIR}/install_errors_$(git rev-parse --short HEAD).log" \
     && deactivate
 
 # RUN source rvcmds.sh \
@@ -487,55 +487,64 @@ RUN source rvcmds.sh \
 
 
 
-#FROM rv_os_runtime AS rv_tar_xz
-#
-#COPY --from=openstudiolandscapes-aswf-openrv-rocky9-cy2024-rv_build:latest "/home/rv/OpenRV/_install" "/home/rv/OpenRV/_install"
-#
-## rel (run rvcfg/rvmk) [rv@c5f5e892209a OpenRV]$ uname -i
-## x86_64
-## rel (run rvcfg/rvmk) [rv@c5f5e892209a OpenRV]$ uname -m
-## x86_64
-## rel (run rvcfg/rvmk) [rv@c5f5e892209a OpenRV]$ uname -p
-## x86_64
-## rel (run rvcfg/rvmk) [rv@c5f5e892209a OpenRV]$ uname -m
-## x86_64
-#
-## source /etc/os-release
-## tar -C /home/rv/OpenRV/_install -czvf OpenRV-$(/home/rv/OpenRV/_install/bin/rv -version)-$(uname)-$(uname --hardware-platform).tar.gz .
-## tar -C /home/rv/OpenRV/_install -cvf - . | gzip -9 - > OpenRV-$(/home/rv/OpenRV/_install/bin/rv -version)-$(uname)-$(uname --hardware-platform).tar.gz
-## tar -C /home/rv/OpenRV/_install -cvf - . | xz -v --threads=0 -9 --stdout - > OpenRV-$(/home/rv/OpenRV/_install/bin/rv -version)-$(uname)-$(uname --hardware-platform).tar.xz
-## tar -C /home/rv/OpenRV/_install --create --verbose --file - . | xz --verbose --threads=0 -9 --stdout - > OpenRV-$(/home/rv/OpenRV/_install/bin/rv -version)-${ROCKY_SUPPORT_PRODUCT}-$(uname --hardware-platform).tar.xz
-#
-#
-##RUN dnf install -y \
-##    redhat-lsb-core \
-##    && dnf clean all
-#
-#
-## Test Integrity
-## tar --list --file OpenRV-$(/home/rv/OpenRV/_install/bin/rv -version)-${ROCKY_SUPPORT_PRODUCT}-$(uname --hardware-platform).tar.xz > /dev/null
-## tar --verbose --list --file OpenRV-$(/home/rv/OpenRV/_install/bin/rv -version)-${ROCKY_SUPPORT_PRODUCT}-$(uname --hardware-platform).tar.xz
-#
-#RUN source /etc/os-release \
-#    && tar \
-#        -C /home/rv/OpenRV/_install \
-#        --create \
-#    	--verbose \
-#    	--file - . \
-#    	| xz \
-#    	--verbose \
-#    	--threads=0 \
-#    	-9 \
-#    	--stdout - \
-#    	> OpenRV-$(/home/rv/OpenRV/_install/bin/rv -version)-${ROCKY_SUPPORT_PRODUCT}-$(uname --hardware-platform).tar.xz \
-#    && tar \
-#    	--verbose \
-#    	--list \
-#    	--file OpenRV-$(/home/rv/OpenRV/_install/bin/rv -version)-${ROCKY_SUPPORT_PRODUCT}-$(uname --hardware-platform).tar.xz \
-#    	> /dev/null \
-#    && echo OpenRV-$(/home/rv/OpenRV/_install/bin/rv -version)-${ROCKY_SUPPORT_PRODUCT}-$(uname --hardware-platform).tar.xz
-#
-#CMD ["/bin/bash"]
+FROM registry.openstudiolandscapes.lan:5000/openrv/openstudiolandscapes-aswf-openrv-rocky9-cy2024-rv_install:latest AS rv_tar_xz
+
+# COPY --from=openstudiolandscapes-aswf-openrv-rocky9-cy2024-rv_build:latest "${RV_REPO}/_install" "/home/rv/OpenRV/_install"
+
+# rel (run rvcfg/rvmk) [rv@c5f5e892209a OpenRV]$ uname -i
+# x86_64
+# rel (run rvcfg/rvmk) [rv@c5f5e892209a OpenRV]$ uname -m
+# x86_64
+# rel (run rvcfg/rvmk) [rv@c5f5e892209a OpenRV]$ uname -p
+# x86_64
+# rel (run rvcfg/rvmk) [rv@c5f5e892209a OpenRV]$ uname -m
+# x86_64
+
+# source /etc/os-release
+# tar -C /home/rv/OpenRV/_install -czvf OpenRV-$(/home/rv/OpenRV/_install/bin/rv -version)-$(uname)-$(uname --hardware-platform).tar.gz .
+# tar -C /home/rv/OpenRV/_install -cvf - . | gzip -9 - > OpenRV-$(/home/rv/OpenRV/_install/bin/rv -version)-$(uname)-$(uname --hardware-platform).tar.gz
+# tar -C /home/rv/OpenRV/_install -cvf - . | xz -v --threads=0 -9 --stdout - > OpenRV-$(/home/rv/OpenRV/_install/bin/rv -version)-$(uname)-$(uname --hardware-platform).tar.xz
+# tar -C /home/rv/OpenRV/_install --create --verbose --file - . | xz --verbose --threads=0 -9 --stdout - > OpenRV-$(/home/rv/OpenRV/_install/bin/rv -version)-${ROCKY_SUPPORT_PRODUCT}-$(uname --hardware-platform).tar.xz
+
+
+#RUN dnf install -y \
+#    redhat-lsb-core \
+#    && dnf clean all
+
+WORKDIR ${RV_REPO}
+RUN mkdir -p ./tarballs
+
+RUN ln -sfn ${RV_REPO}/tarballs /tarballs
+
+# Test Integrity
+# tar --list --file OpenRV-$(/home/rv/OpenRV/_install/bin/rv -version)-${ROCKY_SUPPORT_PRODUCT}-$(uname --hardware-platform).tar.xz > /dev/null
+# tar --verbose --list --file OpenRV-$(/home/rv/OpenRV/_install/bin/rv -version)-${ROCKY_SUPPORT_PRODUCT}-$(uname --hardware-platform).tar.xz
+
+#RUN pwd
+#RUN ls -al ${RV_REPO}/_install_debug
+#RUN ls -al ${RV_REPO}/_install_$(echo ${RV_BUILD_TYPE} | tr '[:upper:]')
+#RUN echo $(${RV_REPO}/_install_${RV_BUILD_TYPE,,}/bin/rv -version)
+RUN source /etc/os-release \
+    && tar \
+        -C ${RV_REPO}/_install_${RV_BUILD_TYPE,,} \
+        --create \
+    	--verbose \
+    	--file - . \
+    	| xz \
+    	--verbose \
+    	--threads=0 \
+    	-9 \
+    	--stdout - \
+    	> ${RV_REPO}/tarballs/OpenRV-$(${RV_REPO}/_install_${RV_BUILD_TYPE,,}/bin/rv -version)-$(git rev-parse --short HEAD)-${RV_VFX_PLATFORM}-${RV_BUILD_TYPE}-${ROCKY_SUPPORT_PRODUCT}-$(uname --hardware-platform).tar.xz \
+    && tar \
+    	--verbose \
+    	--list \
+    	--file ${RV_REPO}/tarballs/OpenRV-$(${RV_REPO}/_install_${RV_BUILD_TYPE,,}/bin/rv -version)-$(git rev-parse --short HEAD)-${RV_VFX_PLATFORM}-${RV_BUILD_TYPE}-${ROCKY_SUPPORT_PRODUCT}-$(uname --hardware-platform).tar.xz \
+    	> /dev/null \
+    && echo ${RV_REPO}/tarballs/OpenRV-$(${RV_REPO}/_install_${RV_BUILD_TYPE,,}/bin/rv -version)-$(git rev-parse --short HEAD)-${RV_VFX_PLATFORM}-${RV_BUILD_TYPE}-${ROCKY_SUPPORT_PRODUCT}-$(uname --hardware-platform).tar.xz \
+    && stat ${RV_REPO}/tarballs/OpenRV-$(${RV_REPO}/_install_${RV_BUILD_TYPE,,}/bin/rv -version)-$(git rev-parse --short HEAD)-${RV_VFX_PLATFORM}-${RV_BUILD_TYPE}-${ROCKY_SUPPORT_PRODUCT}-$(uname --hardware-platform).tar.xz
+
+CMD ["/bin/bash"]
 
 
 # FROM rv_os_runtime AS stage_on_rv_os_build
