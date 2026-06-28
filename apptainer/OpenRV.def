@@ -1,6 +1,7 @@
 BootStrap: docker
 # https://hub.docker.com/r/rockylinux/rockylinux/tags
-From: rockylinux/rockylinux:9
+# From: rockylinux/rockylinux:9
+From: registry.openstudiolandscapes.lan:5000/openrv/openstudiolandscapes-aswf-openrv-rocky9-cy2024-rv_install:latest
 
 # Tested on:
 # - [x] Manjaro
@@ -12,165 +13,207 @@ From: rockylinux/rockylinux:9
 
 %post
 
-    dnf upgrade -y
-    dnf install -y which
-    dnf install -y epel-release
-    dnf config-manager --set-enabled crb devel
-    dnf install -y \
-        alsa-lib-devel \
-        autoconf \
-        automake \
-        avahi-compat-libdns_sd-devel \
-        bison \
-        bzip2-devel \
-        cmake-gui \
-        curl-devel \
-        diffutils \
-        flex \
-        git \
-        gcc \
-        gcc-c++ \
-        libXcomposite \
-        libXi-devel \
-        libaio-devel \
-        libffi-devel \
-        nasm \
-        ncurses-devel \
-        nss \
-        libtool \
-        libxkbcommon \
-        libXcomposite \
-        libXdamage \
-        libXrandr \
-        libXtst \
-        libXcursor \
-        mesa-libGLU \
-        mesa-libGLU-devel \
-        mesa-libOSMesa \
-        mesa-libOSMesa-devel \
-        meson \
-        ninja-build \
-        openssl-devel \
-        patch \
-        perl-FindBin \
-        pulseaudio-libs \
-        pulseaudio-libs-glib2 \
-        ocl-icd \
-        ocl-icd-devel \
-        opencl-headers \
-        qt5-qtbase-devel \
-        readline-devel \
-        sqlite-devel \
-        tcl-devel \
-        tcsh \
-        tk-devel \
-        wget \
-        yasm \
-        zip \
-        zlib-devel \
-        systemd-devel
-    dnf config-manager --set-disabled devel
-    dnf clean all
-    rm -rf /var/cache/yum
+#     dnf upgrade -y
+#     dnf install -y which
+#     dnf install -y epel-release
+#     dnf config-manager --set-enabled crb devel
+#     dnf install -y perl-CPAN
+#
+#     cpan FindBin
+#
+#     dnf groupinstall -y "Development Tools"
+#     dnf install -y \
+# 		alsa-lib-devel \
+# 		autoconf \
+# 		automake \
+# 		avahi-compat-libdns_sd-devel \
+# 		bison \
+# 		bzip2-devel \
+# 		cmake-gui \
+# 		curl-devel \
+# 		flex \
+# 		gcc \
+# 		gcc-c++ \
+# 		git \
+# 		libX11-devel \
+# 		libXcomposite \
+# 		libXcomposite-devel \
+# 		libXcursor \
+# 		libXcursor-devel \
+# 		libXdamage \
+# 		libXext-devel \
+# 		libXi-devel \
+# 		libXrandr \
+# 		libXrandr-devel \
+# 		libXrender-devel \
+# 		libXtst \
+# 		libXxf86vm-devel \
+# 		libaio-devel \
+# 		libffi-devel \
+# 		libtool \
+# 		libxkbcommon \
+# 		libxkbcommon-devel \
+# 		libxkbfile \
+# 		mesa-libGLU \
+# 		mesa-libGLU-devel \
+# 		mesa-compat-libOSMesa \
+# 		mesa-compat-libOSMesa-devel \
+# 		meson \
+# 		nasm \
+# 		ncurses-devel \
+# 		nss \
+# 		ocl-icd \
+# 		ocl-icd-devel \
+# 		opencl-headers \
+# 		openssl-devel \
+# 		patch \
+# 		patchelf \
+# 		pcsc-lite \
+# 		perl-FindBin \
+# 		perl-IPC-Cmd \
+# 		pulseaudio-libs \
+# 		pulseaudio-libs-glib2 \
+# 		qt5-qtbase-devel \
+# 		readline-devel \
+# 		sqlite-devel \
+# 		systemd-devel \
+# 		tcl-devel \
+# 		tcsh \
+# 		tk-devel \
+# 		wget \
+# 		xz-devel \
+# 		yasm \
+# 		zip \
+# 		zlib-devel
+#     dnf config-manager --set-disabled devel
+#     dnf clean all
+#     rm -rf /var/cache/yum
+#
+#     # BUILD
+#     mkdir -p /build
+#
+#     ## CMAKE
+#     mkdir -p /build/cmake
+#
+#     pushd /build/cmake
+#     curl --location https://github.com/Kitware/CMake/releases/download/v{{ CMAKE_VERSION }}/cmake-{{ CMAKE_VERSION }}-linux-x86_64.sh \
+#         --output cmake.sh
+#     sh cmake.sh --prefix=/usr/local/ --skip-license
+#     rm -rf cmake.sh
+#     popd
+#
+#     # Install Rust
+#     # warn: It looks like you have an existing rustup settings file at:
+# 	# warn: /root/.rustup/settings.toml
+#     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+#
+# 	#       running build_ext
+# 	#       running build_rust
+# 	#       error: can't find Rust compiler
+# 	#
+# 	#       If you are using an outdated pip version, it is possible a prebuilt wheel is available for this package but pip is not able to install from it. Installing from the wheel would avoid the need for a Rust compiler.
+# 	#
+# 	#       To update pip, run:
+# 	#
+# 	#           pip install --upgrade pip
+# 	#
+# 	#       and then retry package installation.
+# 	#
+# 	#       If you did intend to build this package from source, try installing a Rust compiler from your system package manager and ensure it is on the PATH during installation. Alternatively, rustup (available at https://rustup.rs) is the recommended way to download and update the Rust compiler toolchain.
+# 	#
+# 	#       This package requires Rust >=1.63.0.
+# 	#       [end of output]
+# 	#
+# 	#   note: This error originates from a subprocess, and is likely not a problem with pip.
+#
+#     ## QT
+#     export QT_QPA_PLATFORM="offscreen"
+#     mkdir -p /build/Qt
+#
+#     pushd /build/Qt
+#     # Download ninja from GitHub to get a more recent version.
+#     wget https://github.com/ninja-build/ninja/releases/download/v{{ NINJA_VERSION }}/ninja-linux.zip
+#     unzip ninja-linux.zip -d ./ninja
+#     echo 'export PATH=${HOME}/ninja:${PATH}' >> ${HOME}/.bash_profile
+#     export PATH="${HOME}/ninja:${PATH}"
+#
+#     # Using pyenv to make sure that python and python3 command points to the same version.
+#     # Install pyenv
+#     git clone http://github.com/pyenv/pyenv.git ${HOME}/.pyenv
+#     export PYENV_ROOT="${HOME}/.pyenv"
+#     export PATH="${PYENV_ROOT}/shims:${PYENV_ROOT}/bin:${PATH}"
+#     echo 'export PYENV_ROOT="${HOME}/.pyenv"' >> ~/.bashrc
+#     echo 'export PATH="$PYENV_ROOT/shims:$PYENV_ROOT/bin:$PATH"' >> ~/.bashrc
+#     echo 'eval "$(pyenv init -)"' >> ~/.bashrc
+#
+#     # Install specific version of Python
+#     pyenv install {{ PYTHON_VERSION }}
+#
+#     # Set as the global version
+#     pyenv global {{ PYTHON_VERSION }}
+#
+#     pip install --upgrade pip
+#     python -m pip install aqtinstall
+#
+#     python -m aqt --help
+#     # https://aqtinstall.readthedocs.io/en/stable/configuration.html#configuration
+#     # WARNING : Caught ChecksumDownloadFailure, terminating installer workers
+#     # ERROR   : Failed to download checksum for the file '5.15.2-0-202011130601qtdeclarative-Linux-RHEL_7_6-GCC-Linux-RHEL_7_6-X86_64-debug-symbols.7z' from mirrors '['https://download.qt.io']
+#     # ==============================Suggested follow-up:==============================
+#     # * Check your internet connection
+#     # * Consider modifying `requests.max_retries_to_retrieve_hash` in settings.ini
+#     # * Consider modifying `mirrors.trusted_mirrors` in settings.ini (see https://aqtinstall.readthedocs.io/en/stable/configuration.html#configuration)
+#
+#     python -m aqt install-qt linux desktop {{ QT_VERSION }} gcc_64 -O {{ QT_ROOT }} \
+#         -m debug_info qt3d qt5compat qtcharts qtconnectivity qtdatavis3d qtgrpc qthttpserver qtimageformats qtlanguageserver qtlocation qtlottie qtmultimedia qtnetworkauth qtpdf qtpositioning qtquick3d qtquick3dphysics qtquickeffectmaker qtquicktimeline qtremoteobjects qtscxml qtsensors qtserialbus qtserialport qtshadertools qtspeech qtvirtualkeyboard qtwaylandcompositor qtwebchannel qtwebengine qtwebsockets qtwebview \
+#         --archives icu qtbase qtdeclarative qtsvg qttools qttranslations qtwayland
+#
+#     export QT_HOME="{{ QT_ROOT }}/{{ QT_VERSION }}/gcc_64"
+#     popd
 
-    # BUILD
-    mkdir -p /build
-
-    ## CMAKE
-    mkdir -p /build/cmake
-
-    pushd /build/cmake
-    curl --location https://github.com/Kitware/CMake/releases/download/v{{ CMAKE_VERSION }}/cmake-{{ CMAKE_VERSION }}-linux-x86_64.sh \
-        --output cmake.sh
-    sh cmake.sh --prefix=/usr/local/ --skip-license
-    rm -rf cmake.sh
-    popd
-
-    ## QT
-    export QT_QPA_PLATFORM="offscreen"
-    mkdir -p /build/Qt
-
-    pushd /build/Qt
-    # Download ninja from GitHub to get a more recent version.
-    wget https://github.com/ninja-build/ninja/releases/download/v{{ NINJA_VERSION }}/ninja-linux.zip
-    unzip ninja-linux.zip -d ./ninja
-    echo 'export PATH=${HOME}/ninja:${PATH}' >> ${HOME}/.bash_profile
-    export PATH="${HOME}/ninja:${PATH}"
-
-    # Using pyenv to make sure that python and python3 command points to the same version.
-    # Install pyenv
-    git clone http://github.com/pyenv/pyenv.git ${HOME}/.pyenv
-    export PYENV_ROOT="${HOME}/.pyenv"
-    export PATH="${PYENV_ROOT}/shims:${PYENV_ROOT}/bin:${PATH}"
-    echo 'export PYENV_ROOT="${HOME}/.pyenv"' >> ~/.bashrc
-    echo 'export PATH="$PYENV_ROOT/shims:$PYENV_ROOT/bin:$PATH"' >> ~/.bashrc
-    echo 'eval "$(pyenv init -)"' >> ~/.bashrc
-
-    # Install specific version of Python
-    pyenv install {{ PY_ENV_PYHON }}
-
-    # Set as the global version
-    pyenv global {{ PY_ENV_PYHON }}
-
-    pip install --upgrade pip
-    python -m pip install aqtinstall
-
-    python -m aqt --help
-    # https://aqtinstall.readthedocs.io/en/stable/configuration.html#configuration
-    # WARNING : Caught ChecksumDownloadFailure, terminating installer workers
-    # ERROR   : Failed to download checksum for the file '5.15.2-0-202011130601qtdeclarative-Linux-RHEL_7_6-GCC-Linux-RHEL_7_6-X86_64-debug-symbols.7z' from mirrors '['https://download.qt.io']
-    # ==============================Suggested follow-up:==============================
-    # * Check your internet connection
-    # * Consider modifying `requests.max_retries_to_retrieve_hash` in settings.ini
-    # * Consider modifying `mirrors.trusted_mirrors` in settings.ini (see https://aqtinstall.readthedocs.io/en/stable/configuration.html#configuration)
-
-    python -m aqt install-qt linux desktop {{ QT_HOME_VERSION }} gcc_64 -O {{ QT_ROOT }} \
-        -m debug_info qtcharts qtdatavis3d qtlottie qtnetworkauth qtpurchasing qtquick3d qtquicktimeline qtscript qtvirtualkeyboard qtwaylandcompositor qtwebengine qtwebglplugin \
-        --archives icu qt3d qtbase qtconnectivity qtdeclarative qtgamepad qtgraphicaleffects qtimageformats qtlocation qtmultimedia qtquickcontrols qtquickcontrols2 qtremoteobjects qtscxml qtsensors qtserialbus qtserialport qtspeech qtsvg qttools qttranslations qtwayland qtwebchannel qtwebsockets qtwebview qtx11extras qtxmlpatterns
-
-    export QT_HOME="{{ QT_ROOT }}/{{ QT_HOME_VERSION }}/gcc_64"
-    popd
-
-    ## OPENRV
-    mkdir -p /build/OpenRV
-
-    pushd /build/OpenRV
-    git clone \
-        --recursive \
-        https://github.com/michimussato/OpenStudioLandscapes-ASWF-OpenRV.git \
-        .
-
-    export RV_INST="{{ RV_INST }}"
-
-    source ./rvcmds.sh
-    time rvsetup
-    rvcfg \
-        -DRV_FFMPEG_NON_FREE_DECODERS_TO_ENABLE=\"{{ FFMPEG_NON_FREE_DECODERS_TO_ENABLE }}\" \
-        -DRV_FFMPEG_NON_FREE_ENCODERS_TO_ENABLE=\"{{ FFMPEG_NON_FREE_ENCODERS_TO_ENABLE }}\"
-    time rvbuildt dependencies
-    time rvbuildt main_executable
-    rvinst
-    popd
-
-    # rm -rf /build/OpenRV
-    # rm -rf {{ QT_ROOT }}
-
-    # CLEANUP
-
-    # build
-    # $ apptainer exec --nv --bind /run/user/$UID OpenRV.sif du -hs /build
-    # 15G     /build
-    # rm -rf /build
-
-    # Todo
-    #  - [ ] Remove /opt/Qt?
-    #  - [ ] Remove cmake?
+#     ## OPENRV
+#     mkdir -p /build/OpenRV
+#
+#     pushd /build/OpenRV
+#     git clone \
+#         --recursive \
+#         https://github.com/michimussato/OpenStudioLandscapes-ASWF-OpenRV.git \
+#         .
+#
+#     export RV_INST="{{ RV_INST }}"
+#     export RV_VFX_PLATFORM="CY2024"
+#
+#     source ./rvcmds.sh
+#     time rvsetup
+#     rvcfg \
+#         -DRV_FFMPEG_NON_FREE_DECODERS_TO_ENABLE=\"{{ FFMPEG_NON_FREE_DECODERS_TO_ENABLE }}\" \
+#         -DRV_FFMPEG_NON_FREE_ENCODERS_TO_ENABLE=\"{{ FFMPEG_NON_FREE_ENCODERS_TO_ENABLE }}\"
+#     # time rvbuildt dependencies
+#     # time rvbuildt main_executable
+#     time rvbuild || rvbuild
+#     rvinst
+#     # cmake --install _build --prefix {{ RV_INST }}
+#     popd
+#
+#     # rm -rf /build/OpenRV
+#     # rm -rf {{ QT_ROOT }}
+#
+#     # CLEANUP
+#
+#     # build
+#     # $ apptainer exec --nv --bind /run/user/$UID OpenRV.sif du -hs /build
+#     # 15G     /build
+#     # rm -rf /build
+#
+#     # Todo
+#     #  - [ ] Remove /opt/Qt?
+#     #  - [ ] Remove cmake?
 
     dnf autoremove -y
     dnf clean all
 
-    cp /lib64/libc.so.6 {{ RV_INST }}/lib
-    cp /lib64/libcrypt.so.2 {{ RV_INST }}/lib
+    # cp /lib64/libc.so.6 {{ RV_INST }}/lib
+    # cp /lib64/libcrypt.so.2 {{ RV_INST }}/lib
 
 %labels
     Author "Jean First"
